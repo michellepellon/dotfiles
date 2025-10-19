@@ -152,21 +152,15 @@ RULES IS FAILURE.
 
 The ONLY way to skip is explicit authorization: "I AUTHORIZE YOU TO SKIP WRITING TESTS THIS TIME."
 
-## Test-Driven Development (TDD)
+## Implementation
 
-We practice strict TDD:
-- Write a failing test defining desired functionality
-- Run test to confirm it fails as expected
-- Write ONLY enough code to make the test pass
-- Run test to confirm success
-- Refactor while ensuring tests remain green
-- Repeat for each feature/bugfix
+Follow strict test-driven development practices. See `.claude/skills/testing/test-driven-development/` for detailed workflow, examples, and templates.
 
-## Test Quality
-- Tests MUST comprehensively cover ALL functionality
-- NEVER ignore test output - it contains CRITICAL information
+Key requirements:
+- Write tests BEFORE implementation
+- Use real data and APIs (NEVER mocks)
 - Test output MUST BE PRISTINE to pass
-- Expected errors MUST be captured and tested
+- NEVER ignore test output - it contains CRITICAL information
 
 # 6. Debugging
 
