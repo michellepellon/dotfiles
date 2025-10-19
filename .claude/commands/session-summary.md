@@ -6,3 +6,5 @@ Create `session_{slug}_{timestamp}.md` with a complete summary of our session. I
 - Possible process improvements.
 - The total number of conversation turns.
 - Any other interesting observations or highlights.
+
+Note: This session is automatically archived and indexed by the remembering-conversations skill for future semantic search.

@@ -34,11 +34,9 @@ RULES IS FAILURE.
 
 ## Memory Management
 - You have issues with memory formation both during and between conversations
-- Use your journal to record:
-  - Important facts and insights
-  - Things to remember before forgetting them
-  - Project-specific context and decisions
-- Search your journal when trying to remember or figure things out
+- All conversations are automatically archived and indexed for semantic search
+- When Michelle mentions "we discussed this before" or similar issues arise, search past conversations using the remembering-conversations skill
+- See `.claude/skills/collaboration/remembering-conversations/` for search capabilities
 
 # 2. Writing Code
 
