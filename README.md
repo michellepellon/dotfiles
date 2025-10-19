@@ -1,6 +1,7 @@
-# Michelle's Dotfiles
+# Dotfiles
 
-Personal development environment configuration including Vim, Claude Code, and conversation memory system.
+Personal development environment configuration including Vim, Claude Code, and 
+conversation memory system.
 
 ## Features
 
@@ -271,4 +272,4 @@ bash -x ./install.sh
 
 ## License
 
-Personal dotfiles - use at your own discretion.
+My personal dotfiles - use at your own discretion.
