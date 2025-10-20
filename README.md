@@ -43,7 +43,8 @@ Skills activate automatically based on task context. [See all details →](docs/
 
 | Skill | Category | Activates When | What It Does |
 |-------|----------|----------------|--------------|
-| **[Test-Driven Development](docs/skills/test-driven-development.md)** | testing | All coding tasks | Enforces TDD workflow, requires unit/integration/e2e tests |
+| **[Test-Driven Development](docs/skills/test-driven-development.md)** | coding | All coding tasks | Enforces TDD workflow, requires unit/integration/e2e tests |
+| **[Simplifying Control Flow](docs/skills/simplifying-control-flow.md)** | coding | Writing conditionals | Flatten nested ifs, keep nesting < 3 levels |
 | **[Remembering Conversations](docs/skills/remembering-conversations.md)** | collaboration | Past context needed | Semantic search of archived conversations |
 | **[Quick Descriptive Stats](docs/skills/quick-descriptive-stats.md)** | analysis | CSV uploaded | Automatic statistics, correlations, visualizations |
 | **[Browsing](docs/skills/browsing.md)** | automation | Browser automation needed | Chrome control via DevTools Protocol |

@@ -6,7 +6,8 @@ Comprehensive skills that activate automatically based on task context.
 
 | Skill | Category | Documentation |
 |-------|----------|---------------|
-| **[Test-Driven Development](test-driven-development.md)** | testing | TDD workflow enforcement |
+| **[Test-Driven Development](test-driven-development.md)** | coding | TDD workflow enforcement |
+| **[Simplifying Control Flow](simplifying-control-flow.md)** | coding | Flatten nested conditionals, keep nesting < 3 |
 | **[Remembering Conversations](remembering-conversations.md)** | collaboration | Semantic conversation search |
 | **[Quick Descriptive Stats](quick-descriptive-stats.md)** | analysis | Automatic CSV analysis |
 | **[Browsing](browsing.md)** | automation | Chrome browser control |
@@ -39,7 +40,7 @@ Each skill provides:
 
 ## Adding New Skills
 
-1. Choose appropriate category (testing/, collaboration/, analysis/, automation/, documents/, writing/, meta/)
+1. Choose appropriate category (coding/, collaboration/, analysis/, automation/, documents/, writing/, meta/)
 2. Follow TDD workflow - write tests first (see [Creating Skills](creating-skills.md))
 3. Use official spec frontmatter format
 4. Provide progressive disclosure documentation
