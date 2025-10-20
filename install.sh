@@ -154,6 +154,43 @@ install_vim() {
     echo
 }
 
+install_skills_flattened() {
+    print_info "Installing skills with flattened structure..."
+
+    # Create skills directory
+    mkdir -p "$HOME/.claude/skills"
+
+    # Remove old symlink if it exists
+    if [ -L "$HOME/.claude/skills" ]; then
+        rm "$HOME/.claude/skills"
+        mkdir -p "$HOME/.claude/skills"
+    fi
+
+    # Find all SKILL.md files in nested directories and create individual symlinks
+    local skills_source="$DOTFILES_DIR/.claude/skills"
+    local skill_count=0
+
+    # Find all directories containing SKILL.md files
+    while IFS= read -r -d '' skill_md; do
+        local skill_dir=$(dirname "$skill_md")
+        local skill_name=$(basename "$skill_dir")
+
+        # Create symlink from ~/.claude/skills/skill-name to the actual location
+        create_symlink \
+            "$skill_dir" \
+            "$HOME/.claude/skills/$skill_name" \
+            "skills/$skill_name"
+
+        ((skill_count++))
+    done < <(find "$skills_source" -name "SKILL.md" -print0)
+
+    if [ $skill_count -eq 0 ]; then
+        print_warning "No skills found in $skills_source"
+    else
+        print_success "Installed $skill_count skill(s) with flattened structure"
+    fi
+}
+
 install_claude() {
     print_header "Installing Claude Code configuration"
 
@@ -172,11 +209,8 @@ install_claude() {
         "$HOME/.claude/commands" \
         "commands/"
 
-    # Link skills directory
-    create_symlink \
-        "$DOTFILES_DIR/.claude/skills" \
-        "$HOME/.claude/skills" \
-        "skills/"
+    # Install skills with flattened structure
+    install_skills_flattened
 
     # Link mcp directory
     create_symlink \
@@ -191,12 +225,12 @@ install_conversation_memory() {
     print_header "Installing conversation memory system"
 
     # Check if skills directory is linked
-    if [ ! -d "$HOME/.claude/skills/collaboration/remembering-conversations" ]; then
+    if [ ! -d "$HOME/.claude/skills/remembering-conversations" ]; then
         print_error "Skills directory not found. Run install_claude first."
         return 1
     fi
 
-    local tool_dir="$HOME/.claude/skills/collaboration/remembering-conversations/tool"
+    local tool_dir="$HOME/.claude/skills/remembering-conversations/tool"
 
     # Install npm dependencies
     print_info "Installing Node.js dependencies (this may take a minute)..."
@@ -370,7 +404,7 @@ print_summary() {
     print_info "2. Restart Claude Code CLI or Claude Desktop to load MCP configuration"
     print_info "3. Open vim to verify configuration"
     print_info "4. Start a Claude Code session - conversations will be automatically archived"
-    print_info "5. Search past conversations: ~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations \"query\""
+    print_info "5. Search past conversations: ~/.claude/skills/remembering-conversations/tool/search-conversations \"query\""
     echo
     print_info "For more details, see README.md"
     echo
