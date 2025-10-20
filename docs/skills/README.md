@@ -10,6 +10,7 @@ Comprehensive skills that activate automatically based on task context.
 | **[Remembering Conversations](remembering-conversations.md)** | collaboration | Semantic conversation search |
 | **[Quick Descriptive Stats](quick-descriptive-stats.md)** | analysis | Automatic CSV analysis |
 | **[Browsing](browsing.md)** | automation | Chrome browser control |
+| **[PDF](pdf.md)** | documents | PDF manipulation toolkit |
 
 ## Architecture
 
@@ -20,7 +21,7 @@ Skills use a hybrid approach:
 - Automatic activation based on task context
 
 **Obra's organizational patterns:**
-- Categorical organization (testing/, collaboration/, analysis/, automation/)
+- Categorical organization (testing/, collaboration/, analysis/, automation/, documents/)
 - Progressive disclosure documentation
 - Comprehensive tooling and examples
 
@@ -35,7 +36,7 @@ Each skill provides:
 
 ## Adding New Skills
 
-1. Choose appropriate category (testing/, collaboration/, analysis/, automation/)
+1. Choose appropriate category (testing/, collaboration/, analysis/, automation/, documents/)
 2. Follow TDD workflow - write tests first
 3. Use official spec frontmatter format
 4. Provide progressive disclosure documentation

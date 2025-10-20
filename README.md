@@ -6,7 +6,7 @@ Personal development environment with Vim, Claude Code skills, and conversation 
 
 - **[Vim](docs/vim-configuration.md)** - Desert colorscheme, smart indentation, shortcuts
 - **[Claude Code](docs/claude-code-setup.md)** - TDD workflow, coding standards, skills system
-- **[Skills](docs/skills/)** - Automatic TDD, conversation search, data analysis, browser automation
+- **[Skills](docs/skills/)** - Automatic TDD, conversation search, data analysis, browser automation, document processing
 
 ## Quick Start
 
@@ -47,6 +47,7 @@ Skills activate automatically based on task context. [See all details →](docs/
 | **[Remembering Conversations](docs/skills/remembering-conversations.md)** | collaboration | Past context needed | Semantic search of archived conversations |
 | **[Quick Descriptive Stats](docs/skills/quick-descriptive-stats.md)** | analysis | CSV uploaded | Automatic statistics, correlations, visualizations |
 | **[Browsing](docs/skills/browsing.md)** | automation | Browser automation needed | Chrome control via DevTools Protocol |
+| **[PDF](docs/skills/pdf.md)** | documents | PDF processing needed | Extract text/tables, create, merge, split, fill forms |
 
 ## Documentation
 
