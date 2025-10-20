@@ -11,6 +11,7 @@ Comprehensive skills that activate automatically based on task context.
 | **[Quick Descriptive Stats](quick-descriptive-stats.md)** | analysis | Automatic CSV analysis |
 | **[Browsing](browsing.md)** | automation | Chrome browser control |
 | **[PDF](pdf.md)** | documents | PDF manipulation toolkit |
+| **[Excel/XLSX](xlsx.md)** | documents | Excel spreadsheet operations |
 
 ## Architecture
 

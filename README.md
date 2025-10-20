@@ -48,6 +48,7 @@ Skills activate automatically based on task context. [See all details →](docs/
 | **[Quick Descriptive Stats](docs/skills/quick-descriptive-stats.md)** | analysis | CSV uploaded | Automatic statistics, correlations, visualizations |
 | **[Browsing](docs/skills/browsing.md)** | automation | Browser automation needed | Chrome control via DevTools Protocol |
 | **[PDF](docs/skills/pdf.md)** | documents | PDF processing needed | Extract text/tables, create, merge, split, fill forms |
+| **[Excel/XLSX](docs/skills/xlsx.md)** | documents | Excel/spreadsheet work needed | Data analysis, formulas, formatting, financial models |
 
 ## Documentation
 
