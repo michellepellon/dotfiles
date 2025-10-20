@@ -12,6 +12,8 @@ Comprehensive skills that activate automatically based on task context.
 | **[Browsing](browsing.md)** | automation | Chrome browser control |
 | **[PDF](pdf.md)** | documents | PDF manipulation toolkit |
 | **[Excel/XLSX](xlsx.md)** | documents | Excel spreadsheet operations |
+| **[Writing Clearly and Concisely](writing-clearly-and-concisely.md)** | writing | Apply Strunk's Elements of Style |
+| **[Creating Skills](creating-skills.md)** | meta | TDD for process documentation |
 
 ## Architecture
 
@@ -37,10 +39,12 @@ Each skill provides:
 
 ## Adding New Skills
 
-1. Choose appropriate category (testing/, collaboration/, analysis/, automation/, documents/)
-2. Follow TDD workflow - write tests first
+1. Choose appropriate category (testing/, collaboration/, analysis/, automation/, documents/, writing/, meta/)
+2. Follow TDD workflow - write tests first (see [Creating Skills](creating-skills.md))
 3. Use official spec frontmatter format
 4. Provide progressive disclosure documentation
 5. Add entry to this table
+
+See [Creating Skills](creating-skills.md) for complete TDD workflow and testing methodology.
 
 See [claude-code-setup.md](../claude-code-setup.md) for configuration details.
