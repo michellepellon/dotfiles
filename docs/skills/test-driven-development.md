@@ -1,43 +1,34 @@
-# Test-Driven Development Skill
+# Test-Driven Development
 
 **Category**: testing
 **Location**: `.claude/skills/testing/test-driven-development/`
 
-## When It Activates
+## Overview
 
-All coding tasks including:
-- Implementing new features
-- Fixing bugs
-- Refactoring code
-
-Activates automatically unless explicitly authorized to skip testing.
-
-## What It Does
-
-Enforces strict TDD workflow:
-1. Write failing test defining desired functionality
-2. Run test to confirm expected failure
-3. Write ONLY enough code to make test pass
-4. Run test to confirm success
-5. Refactor while ensuring tests remain green
+Enforces strict TDD workflow for all development tasks:
+1. Write failing test
+2. Run test (confirm failure)
+3. Write minimal code to pass
+4. Run test (confirm success)
+5. Refactor
 6. Repeat
 
-## Key Requirements
+## When It Activates
 
-- **Comprehensive coverage**: Unit, integration, and end-to-end tests
-- **No mocks**: Use real data and APIs
-- **Pristine output**: Test output must be clean to pass
-- **Test-first**: Always write tests before implementation
+All coding tasks: features, bug fixes, refactoring.
+
+## Requirements
+
+- Unit tests
+- Integration tests
+- End-to-end tests
+- No mocks - use real data and APIs
+- Pristine test output
 
 ## Documentation
 
-- **[SKILL.md](../../.claude/skills/testing/test-driven-development/SKILL.md)** - Official specification
+See skill files for complete details:
+- **[SKILL.md](../../.claude/skills/testing/test-driven-development/SKILL.md)** - Official spec
 - **[examples.md](../../.claude/skills/testing/test-driven-development/examples.md)** - Workflow examples
-- **[reference.md](../../.claude/skills/testing/test-driven-development/reference.md)** - Detailed methodology
+- **[reference.md](../../.claude/skills/testing/test-driven-development/reference.md)** - Methodology
 - **[templates/](../../.claude/skills/testing/test-driven-development/templates/)** - Test templates
-
-## Quick Start
-
-No installation required - skill activates automatically during coding tasks.
-
-See [examples.md](../../.claude/skills/testing/test-driven-development/examples.md) for complete TDD workflow examples.

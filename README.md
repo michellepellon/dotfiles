@@ -1,19 +1,18 @@
 # Dotfiles
 
-Personal development environment configuration with Vim, Claude Code, and conversation memory.
+Personal development environment with Vim, Claude Code skills, and conversation memory.
 
 ## Features
 
-- **[Vim Configuration](docs/vim-configuration.md)** - Desert colorscheme, smart indentation, custom shortcuts
-- **[Claude Code Setup](docs/claude-code-setup.md)** - TDD workflow, coding standards, slash commands
-- **[Skills System](docs/skills/)** - TDD enforcement, conversation search, CSV analysis, browser automation
-- **Conversation Memory** - Semantic search of past Claude Code sessions
+- **[Vim](docs/vim-configuration.md)** - Desert colorscheme, smart indentation, shortcuts
+- **[Claude Code](docs/claude-code-setup.md)** - TDD workflow, coding standards, skills system
+- **[Skills](docs/skills/)** - Automatic TDD, conversation search, data analysis, browser automation
 
 ## Quick Start
 
 ### Prerequisites
 
-- Node.js (v16+) - [Install](https://nodejs.org) or use [nvm](https://github.com/nvm-sh/nvm)
+- Node.js v16+ ([install](https://nodejs.org) or use [nvm](https://github.com/nvm-sh/nvm))
 - git
 
 ### Installation
@@ -24,52 +23,105 @@ cd ~/dev/dotfiles
 ./install.sh
 ```
 
-The installer will:
-- Check prerequisites
-- Backup existing dotfiles
-- Create symlinks to `~/.vimrc` and `~/.claude/`
-- Install conversation search dependencies
-- Set up automatic conversation archiving
-- Build Chrome MCP server
-- Configure MCP settings automatically
+The installer automatically:
+- Backs up existing files
+- Creates symlinks to `~/.vimrc` and `~/.claude/`
+- Installs dependencies (conversation search, Chrome MCP)
+- Configures MCP for Claude Code CLI and Desktop
 
 ### Post-Install
 
-Restart your terminal or:
 ```bash
 source ~/.bashrc  # or ~/.zshrc
 ```
 
-## What Gets Installed
+Restart Claude Code to load MCP configuration.
 
-### Symlinks
+## Claude Code Skills
 
-| Source | Target | Description |
-|--------|--------|-------------|
-| `vimrc` | `~/.vimrc` | Vim configuration |
-| `.claude/CLAUDE.md` | `~/.claude/CLAUDE.md` | Global Claude instructions |
-| `.claude/commands/` | `~/.claude/commands/` | Slash commands |
-| `.claude/skills/` | `~/.claude/skills/` | Claude Code skills |
-| `.claude/mcp/` | `~/.claude/mcp/` | MCP servers (Chrome browser automation) |
+Skills activate automatically based on task context. [See all details →](docs/skills/)
 
-### Additional Setup
+| Skill | Category | Activates When | What It Does |
+|-------|----------|----------------|--------------|
+| **[Test-Driven Development](docs/skills/test-driven-development.md)** | testing | All coding tasks | Enforces TDD workflow, requires unit/integration/e2e tests |
+| **[Remembering Conversations](docs/skills/remembering-conversations.md)** | collaboration | Past context needed | Semantic search of archived conversations |
+| **[Quick Descriptive Stats](docs/skills/quick-descriptive-stats.md)** | analysis | CSV uploaded | Automatic statistics, correlations, visualizations |
+| **[Browsing](docs/skills/browsing.md)** | automation | Browser automation needed | Chrome control via DevTools Protocol |
 
-- **Conversation search** - Node.js dependencies installed automatically
-- **sessionEnd hook** - Enables automatic conversation archiving
-- **Chrome MCP server** - Built automatically for browser automation
+## Documentation
 
-## MCP Configuration
+- **[Vim Configuration](docs/vim-configuration.md)** - Keybindings, settings, customization
+- **[Claude Code Setup](docs/claude-code-setup.md)** - CLAUDE.md, commands, hooks, MCP
+- **[Skills System](docs/skills/)** - Detailed skill documentation
 
-The installer automatically configures the Chrome MCP server for:
-- **Claude Code CLI**: `~/.claude.json`
-- **Claude Desktop**: `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
+## Common Tasks
 
-After installation, restart Claude Code CLI or Claude Desktop to load the MCP configuration.
+### Search Past Conversations
 
-### Manual Configuration
+```bash
+# Semantic search
+~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations "auth errors"
 
-If automatic configuration fails, manually add to your MCP settings:
+# Exact text
+~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations --text "a1b2c3d"
+```
 
+### Update
+
+```bash
+cd ~/dev/dotfiles
+git pull origin main
+```
+
+Changes apply immediately via symlinks.
+
+## Troubleshooting
+
+<details>
+<summary>Conversation search not working</summary>
+
+```bash
+# Verify index
+~/.claude/skills/collaboration/remembering-conversations/tool/index-conversations --verify
+
+# Rebuild
+~/.claude/skills/collaboration/remembering-conversations/tool/index-conversations --cleanup
+```
+</details>
+
+<details>
+<summary>sessionEnd hook not running</summary>
+
+```bash
+# Check executable
+ls -l ~/.claude/hooks/sessionEnd
+
+# Reinstall
+~/.claude/skills/collaboration/remembering-conversations/tool/install-hook
+```
+</details>
+
+<details>
+<summary>Installation failed</summary>
+
+```bash
+# Check prerequisites
+node --version  # Should be v16+
+npm --version
+
+# Verbose output
+bash -x ./install.sh
+```
+</details>
+
+<details>
+<summary>MCP configuration not working</summary>
+
+Automatic configuration targets:
+- **CLI**: `~/.claude.json`
+- **Desktop** (macOS): `~/Library/Application Support/Claude/claude_desktop_config.json`
+
+Manual configuration:
 ```json
 {
   "mcpServers": {
@@ -81,117 +133,15 @@ If automatic configuration fails, manually add to your MCP settings:
 }
 ```
 
-The browsing skill will now be able to control Chrome via the `use_browser` MCP tool.
-
-See [docs/skills/browsing.md](docs/skills/browsing.md) for usage examples.
-
-## Documentation
-
-### Configuration
-- **[Vim Configuration](docs/vim-configuration.md)** - Deep dive on vimrc settings
-- **[Claude Code Setup](docs/claude-code-setup.md)** - CLAUDE.md, commands, hooks
-
-### Skills
-- **[All Skills Overview](docs/skills/)** - Complete skills documentation
-- **[Test-Driven Development](docs/skills/test-driven-development.md)** - TDD workflow enforcement
-- **[Remembering Conversations](docs/skills/remembering-conversations.md)** - Semantic conversation search
-- **[Quick Descriptive Stats](docs/skills/quick-descriptive-stats.md)** - Automatic CSV analysis
-- **[Browsing](docs/skills/browsing.md)** - Chrome browser automation and web scraping
-
-## Usage
-
-### Vim
-
-```bash
-vim myfile.py
-```
-
-Configuration loads automatically. See [vim-configuration.md](docs/vim-configuration.md) for shortcuts and customization.
-
-### Claude Code
-
-Claude Code automatically loads `~/.claude/CLAUDE.md` when starting.
-
-#### Slash Commands
-
-- `/brainstorm` - Interactive spec development
-- `/plan` - Create project plans from specs
-- `/session-summary` - Generate session reports
-- `/setup` - Validate configuration
-
-#### Skills
-
-Skills activate automatically based on task context. See [docs/skills/](docs/skills/) for details on each skill.
-
-#### Search Conversations
-
-Semantic search:
-```bash
-~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations "React Router auth errors"
-```
-
-Exact text match:
-```bash
-~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations --text "a1b2c3d4"
-```
-
-See [remembering-conversations](docs/skills/remembering-conversations.md) for complete search capabilities.
-
-## Updating
-
-Dotfiles are symlinked - updates apply automatically:
-
-```bash
-cd ~/dev/dotfiles
-git pull origin main
-```
-
-If conversation search dependencies change:
-```bash
-cd ~/.claude/skills/collaboration/remembering-conversations/tool
-npm install
-```
-
-## Troubleshooting
-
-### Conversation search not working
-
-```bash
-# Verify index
-~/.claude/skills/collaboration/remembering-conversations/tool/index-conversations --verify
-
-# Rebuild index
-~/.claude/skills/collaboration/remembering-conversations/tool/index-conversations --cleanup
-```
-
-### sessionEnd hook not running
-
-```bash
-# Check hook is executable
-ls -l ~/.claude/hooks/sessionEnd
-
-# Reinstall if needed
-~/.claude/skills/collaboration/remembering-conversations/tool/install-hook
-```
-
-### Installation failed
-
-```bash
-# Verify prerequisites
-node --version  # Should be v16+
-npm --version
-
-# Run with verbose output
-bash -x ./install.sh
-```
+Restart Claude after configuring.
+</details>
 
 ## Credits
 
-- **Vim configuration** - Personal customizations
-- **Skills structure** - Inspired by [obra/superpowers](https://github.com/obra/superpowers)
+- **Skills** - Inspired by [obra/superpowers](https://github.com/obra/superpowers)
 - **Conversation memory** - Based on [obra/clank](https://github.com/obra/clank)
 - **Browser automation** - Based on [obra/superpowers-chrome](https://github.com/obra/superpowers-chrome)
-- **Hybrid approach** - Official Claude Code spec + obra's organizational patterns
+- **Approach** - Official Claude Code spec + obra's patterns
 
 ## License
 

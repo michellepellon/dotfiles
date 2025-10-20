@@ -1,80 +1,44 @@
-# Remembering Conversations Skill
+# Remembering Conversations
 
 **Category**: collaboration
 **Location**: `.claude/skills/collaboration/remembering-conversations/`
 
+## Overview
+
+Search previous Claude Code conversations using semantic or text search. Automatically archives all conversations with AI-powered summaries.
+
 ## When It Activates
 
-When you mention:
 - "We discussed this before"
-- Need to find past decisions or patterns
-- Debugging similar issues from previous sessions
-- Looking for specific git SHAs or error messages
-- Need architectural context from past work
+- Need past decisions or patterns
+- Debugging similar issues
+- Looking for git SHAs or error messages
+- Need architectural context
 
-## What It Does
+## Features
 
-Provides semantic and text search of all past Claude Code conversations:
+- **Semantic search** - Vector embeddings for concept matching
+- **Text search** - Exact matching for SHAs, errors
+- **Automatic archiving** - SessionEnd hook indexes conversations
+- **Time filtering** - Search by date range
+- **Subagent pattern** - 50-100x context savings
 
-### Semantic Search
-Uses vector embeddings (all-MiniLM-L6-v2) to find conceptually similar conversations.
+## Quick Start
 
-Example:
 ```bash
-~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations "React Router auth errors"
-```
+# Semantic search
+~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations "auth errors"
 
-### Text Search
-Exact text matching for git SHAs, error messages, specific terms.
+# Text search
+~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations --text "a1b2c3d"
 
-Example:
-```bash
-~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations --text "a1b2c3d4"
-```
-
-### Automatic Archiving
-SessionEnd hook automatically archives and indexes every conversation after each session.
-
-## Implementation
-
-- **TypeScript** - Full implementation with 29 files
-- **SQLite + sqlite-vec** - Local vector database
-- **Node.js dependencies** - Installed automatically via install.sh
-- **Subagent pattern** - 50-100x context savings for in-session searches
-
-## Documentation
-
-- **[SKILL.md](../../.claude/skills/collaboration/remembering-conversations/SKILL.md)** - Official specification
-- **[INDEXING.md](../../.claude/skills/collaboration/remembering-conversations/INDEXING.md)** - Index management
-- **[DEPLOYMENT.md](../../.claude/skills/collaboration/remembering-conversations/DEPLOYMENT.md)** - Setup details
-
-## Search Examples
-
-Time-range filtering:
-```bash
+# Time range
 ~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations --after 2025-09-01 "refactoring"
 ```
 
-View all options:
-```bash
-~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations --help
-```
+## Documentation
 
-## Manual Operations
-
-Index all unprocessed conversations:
-```bash
-~/.claude/skills/collaboration/remembering-conversations/tool/index-conversations --cleanup
-```
-
-Verify index health:
-```bash
-~/.claude/skills/collaboration/remembering-conversations/tool/index-conversations --verify
-```
-
-Fix issues:
-```bash
-~/.claude/skills/collaboration/remembering-conversations/tool/index-conversations --repair
-```
-
-See [INDEXING.md](../../.claude/skills/collaboration/remembering-conversations/INDEXING.md) for complete index management guide.
+See skill files for complete details:
+- **[SKILL.md](../../.claude/skills/collaboration/remembering-conversations/SKILL.md)** - Official spec
+- **[INDEXING.md](../../.claude/skills/collaboration/remembering-conversations/INDEXING.md)** - Index management
+- **[DEPLOYMENT.md](../../.claude/skills/collaboration/remembering-conversations/DEPLOYMENT.md)** - Setup details

@@ -4,45 +4,16 @@ Comprehensive skills that activate automatically based on task context.
 
 ## Available Skills
 
-### [Test-Driven Development](test-driven-development.md)
-**Category**: testing
+| Skill | Category | Documentation |
+|-------|----------|---------------|
+| **[Test-Driven Development](test-driven-development.md)** | testing | TDD workflow enforcement |
+| **[Remembering Conversations](remembering-conversations.md)** | collaboration | Semantic conversation search |
+| **[Quick Descriptive Stats](quick-descriptive-stats.md)** | analysis | Automatic CSV analysis |
+| **[Browsing](browsing.md)** | automation | Chrome browser control |
 
-Enforces strict TDD workflow for all development tasks. Requires comprehensive test coverage (unit, integration, e2e) before writing implementation code.
+## Architecture
 
-**Activates**: All coding tasks (features, bug fixes, refactoring)
-
----
-
-### [Remembering Conversations](remembering-conversations.md)
-**Category**: collaboration
-
-Search previous Claude Code conversations using semantic or text search. Automatically archives all conversations after each session with AI-powered summaries.
-
-**Activates**: When past context or decisions are needed
-
----
-
-### [Quick Descriptive Stats](quick-descriptive-stats.md)
-**Category**: analysis
-
-Proactively analyzes CSV files without asking questions. Generates comprehensive statistics, correlations, and adaptive visualizations based on data types.
-
-**Activates**: When CSV files are uploaded or tabular data analysis is requested
-
----
-
-### [Browsing](browsing.md)
-**Category**: automation
-
-Control Chrome browser directly via DevTools Protocol. Navigate, interact, extract content, manage tabs, and execute JavaScript for web automation and scraping.
-
-**Activates**: When browser automation, form filling, or interactive web scraping is needed
-
----
-
-## Skills Architecture
-
-All skills follow the hybrid approach combining:
+Skills use a hybrid approach:
 
 **Official Claude Code spec:**
 - Minimalist frontmatter (name, description, allowed-tools)
@@ -56,18 +27,18 @@ All skills follow the hybrid approach combining:
 ## Documentation Structure
 
 Each skill provides:
-- **SKILL.md** - Official specification
+- **SKILL.md** - Official specification with actions reference
 - **README.md** - Installation and quick start
-- **examples.md** - Usage examples
-- **reference.md** - Detailed API documentation
+- **examples.md** - Usage examples and patterns
+- **reference.md** - Detailed API documentation (where applicable)
 - **templates/** - Code templates (where applicable)
 
 ## Adding New Skills
 
-1. Choose appropriate category (testing/, collaboration/, analysis/, automation/, etc.)
+1. Choose appropriate category (testing/, collaboration/, analysis/, automation/)
 2. Follow TDD workflow - write tests first
 3. Use official spec frontmatter format
 4. Provide progressive disclosure documentation
-5. Add overview to this directory
+5. Add entry to this table
 
-See [claude-code-setup.md](../claude-code-setup.md) for complete configuration details.
+See [claude-code-setup.md](../claude-code-setup.md) for configuration details.
