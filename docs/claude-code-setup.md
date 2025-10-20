@@ -106,6 +106,7 @@ Skills activate automatically based on task context. See [skills documentation](
 **testing/** - TDD workflow and test requirements
 **collaboration/** - Memory and conversation management
 **analysis/** - Data analysis and statistics
+**automation/** - Browser control and web automation
 
 ### Progressive Disclosure
 

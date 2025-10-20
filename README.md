@@ -6,7 +6,7 @@ Personal development environment configuration with Vim, Claude Code, and conver
 
 - **[Vim Configuration](docs/vim-configuration.md)** - Desert colorscheme, smart indentation, custom shortcuts
 - **[Claude Code Setup](docs/claude-code-setup.md)** - TDD workflow, coding standards, slash commands
-- **[Skills System](docs/skills/)** - Automatic TDD enforcement, conversation search, CSV analysis
+- **[Skills System](docs/skills/)** - TDD enforcement, conversation search, CSV analysis, browser automation
 - **Conversation Memory** - Semantic search of past Claude Code sessions
 
 ## Quick Start
@@ -48,11 +48,39 @@ source ~/.bashrc  # or ~/.zshrc
 | `.claude/CLAUDE.md` | `~/.claude/CLAUDE.md` | Global Claude instructions |
 | `.claude/commands/` | `~/.claude/commands/` | Slash commands |
 | `.claude/skills/` | `~/.claude/skills/` | Claude Code skills |
+| `.claude/mcp/` | `~/.claude/mcp/` | MCP servers (Chrome browser automation) |
 
 ### Additional Setup
 
 - **Conversation search** - Node.js dependencies installed automatically
 - **sessionEnd hook** - Enables automatic conversation archiving
+- **Chrome MCP server** - Built automatically for browser automation
+
+## MCP Configuration
+
+To enable browser automation, configure Claude Code to use the Chrome MCP server:
+
+1. Open Claude Code MCP settings
+2. Add the Chrome MCP server:
+
+```json
+{
+  "mcpServers": {
+    "chrome": {
+      "command": "node",
+      "args": [
+        "~/.claude/mcp/chrome/dist/index.js"
+      ]
+    }
+  }
+}
+```
+
+3. Restart Claude Code
+
+The browsing skill will now be able to control Chrome via the `use_browser` MCP tool.
+
+See [docs/skills/browsing.md](docs/skills/browsing.md) for usage examples.
 
 ## Documentation
 
@@ -65,6 +93,7 @@ source ~/.bashrc  # or ~/.zshrc
 - **[Test-Driven Development](docs/skills/test-driven-development.md)** - TDD workflow enforcement
 - **[Remembering Conversations](docs/skills/remembering-conversations.md)** - Semantic conversation search
 - **[Quick Descriptive Stats](docs/skills/quick-descriptive-stats.md)** - Automatic CSV analysis
+- **[Browsing](docs/skills/browsing.md)** - Chrome browser automation and web scraping
 
 ## Usage
 
@@ -158,6 +187,7 @@ bash -x ./install.sh
 - **Vim configuration** - Personal customizations
 - **Skills structure** - Inspired by [obra/superpowers](https://github.com/obra/superpowers)
 - **Conversation memory** - Based on [obra/clank](https://github.com/obra/clank)
+- **Browser automation** - Based on [obra/superpowers-chrome](https://github.com/obra/superpowers-chrome)
 - **Hybrid approach** - Official Claude Code spec + obra's organizational patterns
 
 ## License

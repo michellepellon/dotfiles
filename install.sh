@@ -178,6 +178,12 @@ install_claude() {
         "$HOME/.claude/skills" \
         "skills/"
 
+    # Link mcp directory
+    create_symlink \
+        "$DOTFILES_DIR/.claude/mcp" \
+        "$HOME/.claude/mcp" \
+        "mcp/"
+
     echo
 }
 
@@ -210,6 +216,30 @@ install_conversation_memory() {
     else
         print_warning "Failed to install sessionEnd hook"
         print_info "You can install manually: $tool_dir/install-hook"
+    fi
+
+    echo
+}
+
+install_chrome_mcp() {
+    print_header "Installing Chrome MCP Server"
+
+    # Check if mcp directory is linked
+    if [ ! -d "$HOME/.claude/mcp/chrome" ]; then
+        print_error "MCP directory not found. Run install_claude first."
+        return 1
+    fi
+
+    local mcp_dir="$HOME/.claude/mcp/chrome"
+
+    # Install npm dependencies and build
+    print_info "Installing Node.js dependencies and building MCP server..."
+    if (cd "$mcp_dir" && npm install --silent > /dev/null 2>&1 && npm run build --silent > /dev/null 2>&1); then
+        print_success "Built Chrome MCP server"
+        INSTALLED+=("chrome-mcp-server")
+    else
+        print_warning "Failed to build Chrome MCP server"
+        print_info "You can build manually: cd $mcp_dir && npm install && npm run build"
     fi
 
     echo
@@ -249,8 +279,9 @@ print_summary() {
     echo
     print_info "1. Restart your terminal or run: source ~/.bashrc (or ~/.zshrc)"
     print_info "2. Open vim to verify configuration"
-    print_info "3. Start a Claude Code session - conversations will be automatically archived"
-    print_info "4. Search past conversations: ~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations \"query\""
+    print_info "3. Configure Claude Code MCP settings for browser automation (see README.md)"
+    print_info "4. Start a Claude Code session - conversations will be automatically archived"
+    print_info "5. Search past conversations: ~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations \"query\""
     echo
     print_info "For more details, see README.md"
     echo
@@ -272,8 +303,9 @@ DESCRIPTION:
     Installs dotfiles including:
     - Vim configuration (vimrc)
     - Claude Code configuration and commands
-    - Claude Code skills (TDD, conversation memory)
+    - Claude Code skills (TDD, conversation memory, browser automation)
     - Conversation memory system with semantic search
+    - Chrome MCP server for browser automation
 
     The script will:
     1. Check prerequisites (Node.js, npm)
@@ -281,6 +313,7 @@ DESCRIPTION:
     3. Create symlinks from your home directory to this repo
     4. Install conversation search dependencies (npm packages)
     5. Install sessionEnd hook for automatic conversation archiving
+    6. Build Chrome MCP server for browser automation
 
 SAFETY:
     - All existing files are backed up before replacement
@@ -334,6 +367,7 @@ main() {
     install_vim
     install_claude
     install_conversation_memory
+    install_chrome_mcp
 
     # Show summary
     print_summary

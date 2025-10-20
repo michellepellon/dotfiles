@@ -31,6 +31,15 @@ Proactively analyzes CSV files without asking questions. Generates comprehensive
 
 ---
 
+### [Browsing](browsing.md)
+**Category**: automation
+
+Control Chrome browser directly via DevTools Protocol. Navigate, interact, extract content, manage tabs, and execute JavaScript for web automation and scraping.
+
+**Activates**: When browser automation, form filling, or interactive web scraping is needed
+
+---
+
 ## Skills Architecture
 
 All skills follow the hybrid approach combining:
@@ -40,7 +49,7 @@ All skills follow the hybrid approach combining:
 - Automatic activation based on task context
 
 **Obra's organizational patterns:**
-- Categorical organization (testing/, collaboration/, analysis/)
+- Categorical organization (testing/, collaboration/, analysis/, automation/)
 - Progressive disclosure documentation
 - Comprehensive tooling and examples
 
@@ -55,7 +64,7 @@ Each skill provides:
 
 ## Adding New Skills
 
-1. Choose appropriate category (testing/, collaboration/, analysis/, etc.)
+1. Choose appropriate category (testing/, collaboration/, analysis/, automation/, etc.)
 2. Follow TDD workflow - write tests first
 3. Use official spec frontmatter format
 4. Provide progressive disclosure documentation
