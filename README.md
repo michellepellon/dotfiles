@@ -56,16 +56,6 @@ Skills activate automatically based on task context. [See all details →](docs/
 
 ## Common Tasks
 
-### Search Past Conversations
-
-```bash
-# Semantic search
-~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations "auth errors"
-
-# Exact text
-~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations --text "a1b2c3d"
-```
-
 ### Update
 
 ```bash
