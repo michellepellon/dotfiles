@@ -245,6 +245,95 @@ install_chrome_mcp() {
     echo
 }
 
+configure_mcp_servers() {
+    print_header "Configuring Chrome MCP Server"
+
+    # Chrome MCP server configuration
+    local chrome_config='{
+  "mcpServers": {
+    "chrome": {
+      "command": "node",
+      "args": ["'"$HOME"'/.claude/mcp/chrome/dist/index.js"]
+    }
+  }
+}'
+
+    # Configure Claude Code CLI (~/.claude.json)
+    local cli_config="$HOME/.claude.json"
+    print_info "Configuring Claude Code CLI ($cli_config)..."
+
+    if configure_json_file "$cli_config" "$chrome_config"; then
+        print_success "Configured Chrome MCP for Claude Code CLI"
+        INSTALLED+=("chrome MCP config (CLI)")
+    else
+        print_warning "Could not auto-configure CLI - manual setup needed"
+    fi
+
+    # Configure Claude Desktop (macOS only for now)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        local desktop_config="$HOME/Library/Application Support/Claude/claude_desktop_config.json"
+        print_info "Configuring Claude Desktop ($desktop_config)..."
+
+        if configure_json_file "$desktop_config" "$chrome_config"; then
+            print_success "Configured Chrome MCP for Claude Desktop"
+            INSTALLED+=("chrome MCP config (Desktop)")
+        else
+            print_warning "Could not auto-configure Desktop - manual setup needed"
+        fi
+    fi
+
+    echo
+}
+
+configure_json_file() {
+    local config_file="$1"
+    local new_config="$2"
+
+    # Create directory if it doesn't exist
+    local config_dir=$(dirname "$config_file")
+    mkdir -p "$config_dir" 2>/dev/null || return 1
+
+    # Use Node.js to merge JSON configurations
+    node <<EOF 2>/dev/null
+const fs = require('fs');
+const configFile = '$config_file';
+const newConfig = $new_config;
+
+let existing = { mcpServers: {} };
+
+// Read existing config if it exists
+if (fs.existsSync(configFile)) {
+    try {
+        const content = fs.readFileSync(configFile, 'utf8');
+        existing = JSON.parse(content);
+        if (!existing.mcpServers) {
+            existing.mcpServers = {};
+        }
+    } catch (e) {
+        console.error('Error parsing existing config:', e.message);
+        process.exit(1);
+    }
+}
+
+// Merge chrome MCP config (preserve existing servers)
+existing.mcpServers = {
+    ...existing.mcpServers,
+    ...newConfig.mcpServers
+};
+
+// Write updated config
+try {
+    fs.writeFileSync(configFile, JSON.stringify(existing, null, 2) + '\n', 'utf8');
+    process.exit(0);
+} catch (e) {
+    console.error('Error writing config:', e.message);
+    process.exit(1);
+}
+EOF
+
+    return $?
+}
+
 print_summary() {
     echo
     print_header "Installation Summary"
@@ -278,8 +367,8 @@ print_summary() {
     print_header "Next Steps"
     echo
     print_info "1. Restart your terminal or run: source ~/.bashrc (or ~/.zshrc)"
-    print_info "2. Open vim to verify configuration"
-    print_info "3. Configure Claude Code MCP settings for browser automation (see README.md)"
+    print_info "2. Restart Claude Code CLI or Claude Desktop to load MCP configuration"
+    print_info "3. Open vim to verify configuration"
     print_info "4. Start a Claude Code session - conversations will be automatically archived"
     print_info "5. Search past conversations: ~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations \"query\""
     echo
@@ -314,6 +403,7 @@ DESCRIPTION:
     4. Install conversation search dependencies (npm packages)
     5. Install sessionEnd hook for automatic conversation archiving
     6. Build Chrome MCP server for browser automation
+    7. Configure MCP settings for both Claude Code CLI and Desktop
 
 SAFETY:
     - All existing files are backed up before replacement
@@ -368,6 +458,7 @@ main() {
     install_claude
     install_conversation_memory
     install_chrome_mcp
+    configure_mcp_servers
 
     # Show summary
     print_summary

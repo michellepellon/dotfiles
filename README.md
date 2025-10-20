@@ -30,6 +30,8 @@ The installer will:
 - Create symlinks to `~/.vimrc` and `~/.claude/`
 - Install conversation search dependencies
 - Set up automatic conversation archiving
+- Build Chrome MCP server
+- Configure MCP settings automatically
 
 ### Post-Install
 
@@ -58,25 +60,26 @@ source ~/.bashrc  # or ~/.zshrc
 
 ## MCP Configuration
 
-To enable browser automation, configure Claude Code to use the Chrome MCP server:
+The installer automatically configures the Chrome MCP server for:
+- **Claude Code CLI**: `~/.claude.json`
+- **Claude Desktop**: `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
 
-1. Open Claude Code MCP settings
-2. Add the Chrome MCP server:
+After installation, restart Claude Code CLI or Claude Desktop to load the MCP configuration.
+
+### Manual Configuration
+
+If automatic configuration fails, manually add to your MCP settings:
 
 ```json
 {
   "mcpServers": {
     "chrome": {
       "command": "node",
-      "args": [
-        "~/.claude/mcp/chrome/dist/index.js"
-      ]
+      "args": ["~/.claude/mcp/chrome/dist/index.js"]
     }
   }
 }
 ```
-
-3. Restart Claude Code
 
 The browsing skill will now be able to control Chrome via the `use_browser` MCP tool.
 
