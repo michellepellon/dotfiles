@@ -79,19 +79,88 @@ Claude Code automatically loads `~/.claude/CLAUDE.md` when starting a session.
 - `/session-summary` - Generate timestamped session reports
 - `/setup` - Validate Claude configuration exists
 
-#### Skills
+#### Claude Skills
 
-Skills activate automatically when relevant:
+Three comprehensive skills that activate automatically when relevant:
 
-**Test-Driven Development** (`testing/test-driven-development`)
-- Activates for all coding tasks
+##### 1. Test-Driven Development (`testing/test-driven-development`)
+
+**When it activates**: All coding tasks (features, bug fixes, refactoring)
+
+**What it does**:
 - Enforces strict TDD workflow: write test → run → implement → refactor
-- See `.claude/skills/testing/test-driven-development/` for examples and templates
+- Requires unit, integration, and end-to-end tests
+- No mocks policy - uses real data and APIs
+- Ensures pristine test output
 
-**Remembering Conversations** (`collaboration/remembering-conversations`)
-- Activates when you mention "we discussed this before"
-- Automatically archives and indexes all conversations
-- Enables semantic search across past sessions
+**Files**: 5 (SKILL.md, examples, reference, templates)
+
+**Location**: `.claude/skills/testing/test-driven-development/`
+
+##### 2. Remembering Conversations (`collaboration/remembering-conversations`)
+
+**When it activates**: When you mention "we discussed this before" or similar issues arise
+
+**What it does**:
+- Automatically archives all conversations after each session
+- Generates AI-powered summaries (50-120 words)
+- Enables semantic search using vector embeddings
+- Supports exact text search for git SHAs, error messages
+- Uses subagent pattern for 50-100x context savings
+
+**Features**:
+- Vector similarity search for concepts
+- Text search for exact matches
+- Time-range filtering
+- SQLite database with sqlite-vec
+- Background indexing via sessionEnd hook
+
+**Files**: 29 (TypeScript implementation, tests, docs)
+
+**Location**: `.claude/skills/collaboration/remembering-conversations/`
+
+**Search examples**:
+```bash
+# Semantic search
+~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations "React Router auth errors"
+
+# Find git SHA
+~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations --text "a1b2c3d4"
+
+# Time range
+~/.claude/skills/collaboration/remembering-conversations/tool/search-conversations --after 2025-09-01 "refactoring"
+```
+
+##### 3. Quick Descriptive Stats (`analysis/quick-descriptive-stats`)
+
+**When it activates**: When a CSV file is uploaded or tabular data analysis is requested
+
+**What it does**:
+- Proactively analyzes CSV files without asking questions
+- Generates comprehensive statistics (mean, median, std, correlations)
+- Creates adaptive visualizations based on data types
+- Reports data quality issues (missing values)
+- Produces correlation heatmaps, time-series plots, distributions
+
+**Features**:
+- Automatic data type detection
+- Correlation analysis for numeric columns
+- Time-series plotting for date columns
+- Categorical breakdowns
+- Distribution histograms
+- All analysis runs immediately - no user prompting
+
+**Code quality**:
+- 476 lines of implementation (11 modular functions)
+- 200+ lines of tests (16 tests across 4 test files)
+- Full type annotations
+- Comprehensive error handling
+
+**Files**: 15 (implementation, tests, fixtures, docs)
+
+**Location**: `.claude/skills/analysis/quick-descriptive-stats/`
+
+**Dependencies**: pandas, matplotlib, seaborn (install with `pip3 install -r requirements.txt`)
 
 ### Conversation Memory
 

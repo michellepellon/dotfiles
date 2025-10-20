@@ -86,7 +86,7 @@ def analyze_data_quality(df: pd.DataFrame) -> Dict[str, any]:
     return {
         "total_missing": int(total_missing),
         "missing_percentage": round(missing_percentage, 2),
-        "is_complete": total_missing == 0,
+        "is_complete": bool(total_missing == 0),
         "missing_by_column": missing_by_column
     }
 
