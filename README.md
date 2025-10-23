@@ -6,7 +6,7 @@ Personal development environment with Vim, Claude Code skills, and conversation 
 
 - **[Vim](docs/vim-configuration.md)** - Desert colorscheme, smart indentation, shortcuts
 - **[Claude Code](docs/claude-code-setup.md)** - TDD workflow, coding standards, skills system
-- **[Skills](docs/skills/)** - Automatic TDD, conversation search, data analysis, browser automation, document processing, clear writing
+- **[Skills](docs/skills/)** - Design brainstorming, automatic TDD, conversation search, data analysis, browser automation, document processing, clear writing
 
 ## Quick Start
 
@@ -43,6 +43,7 @@ Skills activate automatically based on task context. [See all details →](docs/
 
 | Skill | Category | Activates When | What It Does |
 |-------|----------|----------------|--------------|
+| **[Brainstorming](docs/skills/brainstorming.md)** | design | Before implementation | Refine rough ideas into validated designs through structured questioning |
 | **[Test-Driven Development](docs/skills/test-driven-development.md)** | coding | All coding tasks | Enforces TDD workflow, requires unit/integration/e2e tests |
 | **[Simplifying Control Flow](docs/skills/simplifying-control-flow.md)** | coding | Writing conditionals | Flatten nested ifs, keep nesting < 3 levels |
 | **[Remembering Conversations](docs/skills/remembering-conversations.md)** | collaboration | Past context needed | Semantic search of archived conversations |
