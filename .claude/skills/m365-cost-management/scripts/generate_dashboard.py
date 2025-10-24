@@ -15,20 +15,91 @@ from typing import Dict, List
 from dotenv import load_dotenv
 
 
-def get_latest_run_id(conn: sqlite3.Connection) -> int:
-    """Get the most recent completed collection run."""
+def get_latest_run_id(conn: sqlite3.Connection) -> tuple[int, bool]:
+    """
+    Get the most recent collection run and check if complete.
+
+    Returns:
+        Tuple of (run_id, is_complete)
+    """
     cursor = conn.cursor()
+
+    # Try to get completed run first
     cursor.execute("""
-        SELECT id FROM collection_runs
+        SELECT id, status FROM collection_runs
         WHERE status = 'completed'
         ORDER BY timestamp DESC
         LIMIT 1
     """)
     result = cursor.fetchone()
-    if not result:
-        print("No completed data collection found. Run collect_m365_data.py first.")
-        sys.exit(1)
-    return result[0]
+
+    if result:
+        return result[0], True
+
+    # Check for running or failed runs with data
+    cursor.execute("""
+        SELECT id, status FROM collection_runs
+        WHERE status IN ('running', 'failed')
+        ORDER BY timestamp DESC
+        LIMIT 1
+    """)
+    result = cursor.fetchone()
+
+    if result:
+        run_id, status = result
+        print(f"Warning: Using data from {status} collection run {run_id}")
+        print("Data may be incomplete. Re-run collect_m365_data.py to complete.")
+        return run_id, False
+
+    print("No data collection found. Run collect_m365_data.py first.")
+    sys.exit(1)
+
+
+def get_collection_metadata(conn: sqlite3.Connection, run_id: int) -> dict:
+    """Get metadata about the collection run."""
+    cursor = conn.cursor()
+
+    # Get run info
+    cursor.execute("""
+        SELECT
+            timestamp,
+            status,
+            records_collected,
+            error_message
+        FROM collection_runs
+        WHERE id = ?
+    """, (run_id,))
+    row = cursor.fetchone()
+
+    if not row:
+        return {}
+
+    metadata = {
+        'run_id': run_id,
+        'timestamp': row[0],
+        'status': row[1],
+        'records_collected': row[2],
+        'error_message': row[3]
+    }
+
+    # Get latest progress if available
+    cursor.execute("""
+        SELECT phase, progress, total, message
+        FROM collection_progress
+        WHERE collection_run_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+    """, (run_id,))
+    progress_row = cursor.fetchone()
+
+    if progress_row:
+        metadata['last_phase'] = progress_row[0]
+        metadata['progress'] = progress_row[1]
+        metadata['total'] = progress_row[2]
+        metadata['progress_pct'] = (progress_row[1] / progress_row[2] * 100) if progress_row[2] > 0 else 0
+        metadata['progress_message'] = progress_row[3]
+
+    return metadata
 
 
 def get_dashboard_data(db_path: str, inactive_days: int = 90) -> Dict:
@@ -36,7 +107,8 @@ def get_dashboard_data(db_path: str, inactive_days: int = 90) -> Dict:
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
 
-    run_id = get_latest_run_id(conn)
+    run_id, is_complete = get_latest_run_id(conn)
+    metadata = get_collection_metadata(conn, run_id)
 
     # Total costs
     cursor = conn.cursor()
@@ -118,7 +190,9 @@ def get_dashboard_data(db_path: str, inactive_days: int = 90) -> Dict:
         'inactive_summary': inactive_summary,
         'inactive_users': inactive_users,
         'inactive_days': inactive_days,
-        'generated_at': datetime.now().isoformat()
+        'generated_at': datetime.now().isoformat(),
+        'metadata': metadata,
+        'is_complete': is_complete
     }
 
 

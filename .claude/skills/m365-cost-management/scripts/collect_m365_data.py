@@ -734,12 +734,18 @@ def authenticate_graph_api(
         raise Exception(f"Authentication failed: {error} - {error_desc}")
 
 
-def fetch_subscribed_skus(access_token: str) -> list[dict[str, Any]]:
+def fetch_subscribed_skus(
+    access_token: str,
+    db_path: str | None = None,
+    run_id: int | None = None
+) -> list[dict[str, Any]]:
     """
-    Fetch all subscribed SKUs from Graph API.
+    Fetch all subscribed SKUs from Graph API with rate limit handling.
 
     Args:
         access_token: Graph API access token
+        db_path: Database path for retry logging (optional)
+        run_id: Collection run ID for retry logging (optional)
 
     Returns:
         List of SKU objects
@@ -749,13 +755,35 @@ def fetch_subscribed_skus(access_token: str) -> list[dict[str, Any]]:
         'Content-Type': 'application/json'
     }
 
-    response = requests.get(
-        'https://graph.microsoft.com/v1.0/subscribedSkus',
-        headers=headers
-    )
-    response.raise_for_status()
+    endpoint = 'https://graph.microsoft.com/v1.0/subscribedSkus'
+    max_retries = 5
 
-    return response.json()['value']
+    for attempt in range(max_retries):
+        response = requests.get(endpoint, headers=headers)
+
+        if response.status_code == 200:
+            return response.json()['value']
+
+        if is_rate_limited(response):
+            delay = calculate_retry_delay(response, attempt)
+            print(f"Rate limited. Waiting {delay}s before retry...")
+
+            if db_path and run_id:
+                log_retry_attempt(
+                    db_path,
+                    run_id,
+                    '/subscribedSkus',
+                    attempt + 1,
+                    delay,
+                    'Rate limited (429)'
+                )
+
+            time.sleep(delay)
+            continue
+
+        response.raise_for_status()
+
+    raise Exception(f"Failed to fetch SKUs after {max_retries} attempts")
 
 
 def fetch_users_with_activity(access_token: str) -> list[dict[str, Any]]:
@@ -794,6 +822,103 @@ def fetch_users_with_activity(access_token: str) -> list[dict[str, Any]]:
         params = None  # nextLink includes all params
 
     return all_users
+
+
+def fetch_and_store_users_batch(
+    access_token: str,
+    db_path: str,
+    run_id: int,
+    batch_size: int = 100
+) -> int:
+    """
+    Fetch users with activity and store in batches with checkpoints.
+
+    Handles pagination, rate limiting, and creates checkpoints after
+    each batch for resumability.
+
+    Args:
+        access_token: Graph API access token
+        db_path: Database path
+        run_id: Collection run ID
+        batch_size: Users per batch
+
+    Returns:
+        Total number of users processed
+    """
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json'
+    }
+
+    all_users = []
+    url = 'https://graph.microsoft.com/v1.0/users'
+    params = {
+        '$select': 'userPrincipalName,signInActivity',
+        '$top': 999
+    }
+
+    # First, fetch all users with pagination and rate limiting
+    print("Fetching user list from Graph API...")
+    max_retries = 5
+
+    while url:
+        success = False
+
+        for attempt in range(max_retries):
+            response = requests.get(url, headers=headers, params=params)
+
+            if response.status_code == 200:
+                success = True
+                break
+
+            if is_rate_limited(response):
+                delay = calculate_retry_delay(response, attempt)
+                print(f"Rate limited. Waiting {delay}s before retry...")
+                log_retry_attempt(
+                    db_path,
+                    run_id,
+                    '/users',
+                    attempt + 1,
+                    delay,
+                    'Rate limited (429)'
+                )
+                time.sleep(delay)
+                continue
+
+            response.raise_for_status()
+
+        if not success:
+            raise Exception(f"Failed to fetch users after {max_retries} attempts")
+
+        data = response.json()
+        all_users.extend(data['value'])
+
+        # Get next page URL
+        url = data.get('@odata.nextLink')
+        params = None  # nextLink includes all params
+
+        print(f"Fetched {len(all_users)} users so far...")
+
+    total_users = len(all_users)
+    print(f"Found {total_users} total users")
+
+    # Process users in batches
+    print(f"Processing users in batches of {batch_size}...")
+    for i in range(0, total_users, batch_size):
+        batch = all_users[i:i + batch_size]
+        batch_num = (i // batch_size) + 1
+        total_batches = (total_users + batch_size - 1) // batch_size
+
+        print(f"Processing batch {batch_num}/{total_batches} ({len(batch)} users)...")
+        store_user_activity_batch(
+            db_path,
+            run_id,
+            batch,
+            batch_start=i,
+            total_count=total_users
+        )
+
+    return total_users
 
 
 def fetch_user_licenses(
@@ -841,6 +966,8 @@ def main() -> int:
     """
     Main function to collect M365 data and store in database.
 
+    Supports incremental collection with checkpoints and rate limiting.
+
     Returns:
         Exit code (0 for success, 1 for failure)
     """
@@ -851,6 +978,7 @@ def main() -> int:
     client_id = os.getenv('CLIENT_ID')
     client_secret = os.getenv('CLIENT_SECRET')
     db_path = os.getenv('DATABASE_PATH', './data/m365_costs.db')
+    batch_size = int(os.getenv('BATCH_SIZE', '100'))
 
     # Validate configuration
     if not all([tenant_id, client_id, client_secret]):
@@ -868,9 +996,10 @@ def main() -> int:
         # Start collection run
         run_id = start_collection_run(db_path)
         print(f"Started collection run {run_id}")
+        print(f"Batch size: {batch_size} users per batch")
 
         # Authenticate
-        print("Authenticating to Microsoft Graph API...")
+        print("\nAuthenticating to Microsoft Graph API...")
         access_token = authenticate_graph_api(
             tenant_id,
             client_id,
@@ -878,33 +1007,64 @@ def main() -> int:
         )
         print("Authentication successful")
 
-        # Fetch license data
-        print("Fetching subscribed SKUs...")
-        skus = fetch_subscribed_skus(access_token)
+        # Fetch license data with rate limiting
+        print("\nFetching subscribed SKUs...")
+        skus = fetch_subscribed_skus(access_token, db_path, run_id)
         print(f"Found {len(skus)} SKUs")
         store_licenses(db_path, run_id, skus)
+        update_progress(
+            db_path,
+            run_id,
+            'licenses',
+            len(skus),
+            len(skus),
+            f'Stored {len(skus)} license SKUs'
+        )
 
-        # Fetch user activity
-        print("Fetching users with sign-in activity...")
-        users = fetch_users_with_activity(access_token)
-        print(f"Found {len(users)} users")
-        store_user_activity(db_path, run_id, users)
+        # Fetch user activity in batches with checkpoints
+        print("\nFetching users with sign-in activity...")
+        total_users = fetch_and_store_users_batch(
+            access_token,
+            db_path,
+            run_id,
+            batch_size
+        )
+        print(f"Processed {total_users} users")
 
         # Fetch user licenses
-        print("Fetching user license assignments...")
+        print("\nFetching user license assignments...")
+        print("Note: This may take a while for large tenants...")
+
+        # Get all users for license fetching
+        users = fetch_users_with_activity(access_token)
         user_licenses = fetch_user_licenses(access_token, users)
         total_assignments = sum(
             len(lic['value']) for lic in user_licenses.values()
         )
         print(f"Found {total_assignments} license assignments")
         store_user_licenses(db_path, run_id, user_licenses)
+        update_progress(
+            db_path,
+            run_id,
+            'user_licenses',
+            len(user_licenses),
+            len(user_licenses),
+            f'Stored {total_assignments} license assignments'
+        )
 
         # Complete run
-        total_records = len(skus) + len(users) + len(user_licenses)
+        total_records = len(skus) + total_users + len(user_licenses)
         complete_collection_run(db_path, run_id, success=True, records=total_records)
 
-        print(f"\nCollection complete!")
+        # Print summary
+        print(f"\n{'='*60}")
+        print("Collection complete!")
+        print(f"{'='*60}")
+        print(f"Run ID: {run_id}")
         print(f"Total records: {total_records}")
+        print(f"  - SKUs: {len(skus)}")
+        print(f"  - Users: {total_users}")
+        print(f"  - License assignments: {total_assignments}")
         print(f"Database: {db_path}")
         print(f"\nNext step: Generate dashboard with generate_dashboard.py")
 
@@ -912,6 +1072,8 @@ def main() -> int:
 
     except Exception as e:
         print(f"\nError during collection: {e}")
+        import traceback
+        traceback.print_exc()
 
         # Mark run as failed if we have a run_id
         if 'run_id' in locals():
@@ -921,6 +1083,10 @@ def main() -> int:
                 success=False,
                 error_message=str(e)
             )
+
+        print(f"\nCollection failed. Check logs for details.")
+        print(f"Run ID: {run_id if 'run_id' in locals() else 'N/A'}")
+        print(f"You can re-run to resume from the last checkpoint.")
 
         return 1
 
