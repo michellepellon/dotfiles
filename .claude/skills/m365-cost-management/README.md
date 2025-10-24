@@ -98,11 +98,12 @@ uv run python scripts/generate_dashboard.py
 ```
 
 Creates `m365_dashboard.html` with:
-- Overview: Total costs and savings potential
-- Inactive Users: Users with 90+ days no sign-in
-- License Utilization: Unassigned licenses
-- Actions: Prioritized recommendations
-- Warning if data is incomplete
+- **Status Banner**: Shows collection completion status (complete/running/failed)
+- **Overview**: Total costs and savings potential
+- **Inactive Users**: Users with 90+ days no sign-in
+- **License Utilization**: Unassigned licenses
+- **Actions**: Prioritized recommendations
+- **Collection Info**: Comprehensive collection metadata, checkpoints, and retry logs
 
 ### 3. Review Dashboard
 
@@ -110,11 +111,12 @@ Creates `m365_dashboard.html` with:
 open m365_dashboard.html
 ```
 
-Navigate through four tabs:
+Navigate through five tabs:
 - **Overview**: Hero metric showing potential cost reduction %
 - **Inactive Users**: Download CSV of users to review
 - **Utilization**: See which licenses are unused
 - **Actions**: Specific next steps with savings impact
+- **Collection Info**: View collection status, progress, checkpoints, and rate limiting details
 
 ## Configuration
 
@@ -211,12 +213,53 @@ Creates static HTML dashboard from database.
 - Nord frost color palette
 - Self-contained (no external dependencies)
 
+**Features**:
+- **Status Banner**: Displays collection status (complete/running/failed) with color-coded warnings
+- **Collection Info Tab**: Shows comprehensive metadata including:
+  - Collection run ID, timestamp, and status
+  - Total users and licenses collected
+  - Progress tracking (phase, progress, percentage)
+  - Recent checkpoints (last 10)
+  - Rate limiting and retry attempts
+  - Error messages if collection failed
+- **Cost Analysis**: Overview, inactive users, and utilization tabs with interactive charts
+- **CSV Export**: Download inactive user lists for review
+
 ## Database Schema
 
 ### collection_runs
 - `id` (INTEGER PRIMARY KEY)
 - `timestamp` (TEXT)
-- `status` (TEXT: 'completed', 'failed')
+- `status` (TEXT: 'completed', 'running', 'failed')
+- `records_collected` (INTEGER)
+- `error_message` (TEXT)
+
+### collection_checkpoints
+- `id` (INTEGER PRIMARY KEY)
+- `collection_run_id` (INTEGER)
+- `timestamp` (TEXT)
+- `phase` (TEXT: 'user_activity', 'licenses', etc.)
+- `progress` (INTEGER)
+- `total` (INTEGER)
+- `details` (TEXT)
+
+### collection_progress
+- `id` (INTEGER PRIMARY KEY)
+- `collection_run_id` (INTEGER)
+- `timestamp` (TEXT)
+- `phase` (TEXT)
+- `progress` (INTEGER)
+- `total` (INTEGER)
+- `message` (TEXT)
+
+### retry_log
+- `id` (INTEGER PRIMARY KEY)
+- `collection_run_id` (INTEGER)
+- `timestamp` (TEXT)
+- `endpoint` (TEXT)
+- `attempt` (INTEGER)
+- `delay` (INTEGER)
+- `reason` (TEXT)
 
 ### licenses
 - `collection_run_id` (INTEGER)

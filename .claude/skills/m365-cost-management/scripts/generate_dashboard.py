@@ -56,7 +56,7 @@ def get_latest_run_id(conn: sqlite3.Connection) -> tuple[int, bool]:
 
 
 def get_collection_metadata(conn: sqlite3.Connection, run_id: int) -> dict:
-    """Get metadata about the collection run."""
+    """Get comprehensive metadata about the collection run."""
     cursor = conn.cursor()
 
     # Get run info
@@ -78,7 +78,7 @@ def get_collection_metadata(conn: sqlite3.Connection, run_id: int) -> dict:
         'run_id': run_id,
         'timestamp': row[0],
         'status': row[1],
-        'records_collected': row[2],
+        'records_collected': row[2] if row[2] else 0,
         'error_message': row[3]
     }
 
@@ -99,7 +99,92 @@ def get_collection_metadata(conn: sqlite3.Connection, run_id: int) -> dict:
         metadata['progress_pct'] = (progress_row[1] / progress_row[2] * 100) if progress_row[2] > 0 else 0
         metadata['progress_message'] = progress_row[3]
 
+    # Count total users collected
+    cursor.execute("""
+        SELECT COUNT(*) FROM user_activity
+        WHERE collection_run_id = ?
+    """, (run_id,))
+    metadata['total_users'] = cursor.fetchone()[0]
+
+    # Count total licenses collected
+    cursor.execute("""
+        SELECT COUNT(*) FROM licenses
+        WHERE collection_run_id = ?
+    """, (run_id,))
+    metadata['total_licenses'] = cursor.fetchone()[0]
+
     return metadata
+
+
+def get_checkpoint_info(conn: sqlite3.Connection, run_id: int) -> list[dict]:
+    """Get checkpoint information for the collection run."""
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT
+            timestamp,
+            phase,
+            progress,
+            total,
+            details
+        FROM collection_checkpoints
+        WHERE collection_run_id = ?
+        ORDER BY id DESC
+        LIMIT 10
+    """, (run_id,))
+
+    checkpoints = []
+    for row in cursor.fetchall():
+        checkpoints.append({
+            'timestamp': row[0],
+            'phase': row[1],
+            'progress': row[2],
+            'total': row[3],
+            'details': row[4]
+        })
+
+    return checkpoints
+
+
+def get_retry_info(conn: sqlite3.Connection, run_id: int) -> dict:
+    """Get retry/rate limiting information for the collection run."""
+    cursor = conn.cursor()
+
+    # Get total retry count
+    cursor.execute("""
+        SELECT COUNT(*) FROM retry_log
+        WHERE collection_run_id = ?
+    """, (run_id,))
+    total_retries = cursor.fetchone()[0]
+
+    # Get recent retries
+    cursor.execute("""
+        SELECT
+            timestamp,
+            endpoint,
+            attempt,
+            delay,
+            reason
+        FROM retry_log
+        WHERE collection_run_id = ?
+        ORDER BY id DESC
+        LIMIT 10
+    """, (run_id,))
+
+    retries = []
+    for row in cursor.fetchall():
+        retries.append({
+            'timestamp': row[0],
+            'endpoint': row[1],
+            'attempt': row[2],
+            'delay': row[3],
+            'reason': row[4]
+        })
+
+    return {
+        'total_retries': total_retries,
+        'recent_retries': retries
+    }
 
 
 def get_dashboard_data(db_path: str, inactive_days: int = 90) -> Dict:
@@ -109,6 +194,8 @@ def get_dashboard_data(db_path: str, inactive_days: int = 90) -> Dict:
 
     run_id, is_complete = get_latest_run_id(conn)
     metadata = get_collection_metadata(conn, run_id)
+    checkpoints = get_checkpoint_info(conn, run_id)
+    retry_info = get_retry_info(conn, run_id)
 
     # Total costs
     cursor = conn.cursor()
@@ -122,7 +209,13 @@ def get_dashboard_data(db_path: str, inactive_days: int = 90) -> Dict:
         INNER JOIN price_lookup p ON l.sku_id = p.sku_id
         WHERE l.collection_run_id = ?
     """, (run_id,))
-    costs = dict(cursor.fetchone())
+    costs_row = cursor.fetchone()
+    costs = dict(costs_row) if costs_row else {
+        'total_monthly': 0,
+        'total_licenses': 0,
+        'assigned_licenses': 0,
+        'available_licenses': 0
+    }
 
     # Costs by SKU
     cursor.execute("""
@@ -192,6 +285,8 @@ def get_dashboard_data(db_path: str, inactive_days: int = 90) -> Dict:
         'inactive_days': inactive_days,
         'generated_at': datetime.now().isoformat(),
         'metadata': metadata,
+        'checkpoints': checkpoints,
+        'retry_info': retry_info,
         'is_complete': is_complete
     }
 
@@ -233,7 +328,7 @@ def generate_html(data: Dict, output_path: str):
         h1 {{
             font-weight: 300;
             font-size: 2.5rem;
-            margin-bottom: 3rem;
+            margin-bottom: 1rem;
             color: #2E3440;
         }}
 
@@ -251,32 +346,81 @@ def generate_html(data: Dict, output_path: str):
             color: #2E3440;
         }}
 
+        h4 {{
+            font-weight: 400;
+            font-size: 1rem;
+            margin: 1.5rem 0 0.5rem 0;
+            color: #4C566A;
+        }}
+
+        p {{
+            line-height: 1.6;
+            color: #4C566A;
+        }}
+
+        .status-banner {{
+            padding: 1rem 1.5rem;
+            margin-bottom: 2rem;
+            border-radius: 4px;
+            border-left: 4px solid;
+        }}
+
+        .status-banner.warning {{
+            background: #EBCB8B20;
+            border-color: #EBCB8B;
+            color: #5E4F21;
+        }}
+
+        .status-banner.error {{
+            background: #BF616A20;
+            border-color: #BF616A;
+            color: #6B1A22;
+        }}
+
+        .status-banner.success {{
+            background: #A3BE8C20;
+            border-color: #A3BE8C;
+            color: #2F4F21;
+        }}
+
+        .status-banner h3 {{
+            margin: 0 0 0.5rem 0;
+            font-size: 1rem;
+            font-weight: 600;
+        }}
+
+        .status-banner p {{
+            margin: 0;
+            font-size: 0.9rem;
+        }}
+
         .tabs {{
             display: flex;
             gap: 0;
-            margin-bottom: 3rem;
             border-bottom: 1px solid #D8DEE9;
+            margin-bottom: 2rem;
         }}
 
         .tab {{
             padding: 1rem 2rem;
             background: none;
             border: none;
-            cursor: pointer;
-            font-size: 1rem;
-            font-weight: 400;
             color: #4C566A;
+            font-size: 0.95rem;
+            font-weight: 400;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
             transition: all 0.2s;
-            border-bottom: 2px solid transparent;
         }}
 
         .tab:hover {{
             color: #2E3440;
+            background: #F5F7FA;
         }}
 
         .tab.active {{
             color: #5E81AC;
-            border-bottom: 2px solid #5E81AC;
+            border-bottom-color: #5E81AC;
         }}
 
         .page {{
@@ -289,106 +433,88 @@ def generate_html(data: Dict, output_path: str):
 
         .hero-metric {{
             text-align: center;
-            margin: 4rem 0;
+            padding: 3rem 0;
+            border-bottom: 1px solid #ECEFF4;
+            margin-bottom: 3rem;
         }}
 
         .hero-value {{
-            font-size: 4rem;
-            font-weight: 200;
+            font-size: 5rem;
+            font-weight: 100;
             color: #5E81AC;
+            line-height: 1;
         }}
 
         .hero-label {{
-            font-size: 1rem;
+            font-size: 1.2rem;
             color: #4C566A;
-            margin-top: 1rem;
+            margin-top: 0.5rem;
+            font-weight: 300;
         }}
 
         .hero-sublabel {{
-            font-size: 0.9rem;
-            color: #D8DEE9;
+            font-size: 0.95rem;
+            color: #4C566A;
             margin-top: 0.5rem;
         }}
 
         .chart-container {{
+            position: relative;
+            height: 400px;
             margin: 2rem 0;
-            padding: 1rem 0;
-        }}
-
-        canvas {{
-            max-height: 500px;
         }}
 
         .caption {{
-            font-size: 0.9rem;
-            color: #4C566A;
-            margin-top: 1rem;
             text-align: center;
+            color: #4C566A;
+            font-size: 0.9rem;
+            margin-top: 1rem;
         }}
 
-        .action-list {{
+        .download-btn {{
+            display: inline-block;
+            margin: 2rem 0;
+            padding: 0.75rem 2rem;
+            background: #5E81AC;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 0.95rem;
+            transition: background 0.2s;
+        }}
+
+        .download-btn:hover {{
+            background: #4C6A94;
+        }}
+
+        .actions-list {{
             list-style: none;
             margin: 2rem 0;
         }}
 
-        .action-item {{
-            padding: 1.5rem 0;
-            border-bottom: 1px solid #ECEFF4;
+        .actions-list li {{
+            padding: 1.5rem;
+            border-left: 3px solid #5E81AC;
+            margin-bottom: 1rem;
+            background: #F9FAFB;
         }}
 
-        .action-item:last-child {{
-            border-bottom: none;
-        }}
-
-        .action-title {{
-            font-weight: 400;
+        .actions-list .action-title {{
+            font-weight: 500;
             font-size: 1.1rem;
             color: #2E3440;
             margin-bottom: 0.5rem;
         }}
 
-        .action-detail {{
-            color: #4C566A;
-            font-size: 0.9rem;
-        }}
-
-        .checklist {{
-            margin: 2rem 0;
-            padding: 1.5rem;
-            background: #ECEFF4;
-            border-radius: 4px;
-        }}
-
-        .checklist ul {{
-            list-style: none;
-            margin-top: 1rem;
-        }}
-
-        .checklist li {{
-            padding: 0.5rem 0;
-            color: #4C566A;
-        }}
-
-        .checklist li:before {{
-            content: "—";
-            margin-right: 0.5rem;
+        .actions-list .action-impact {{
             color: #5E81AC;
-        }}
-
-        .download-btn {{
-            display: inline-block;
-            padding: 0.75rem 1.5rem;
-            background: #5E81AC;
-            color: white;
-            text-decoration: none;
-            border-radius: 4px;
             font-weight: 400;
-            margin-top: 1rem;
-            transition: background 0.2s;
+            margin-bottom: 0.5rem;
         }}
 
-        .download-btn:hover {{
-            background: #81A1C1;
+        .actions-list .action-desc {{
+            color: #4C566A;
+            line-height: 1.6;
         }}
 
         table {{
@@ -416,17 +542,88 @@ def generate_html(data: Dict, output_path: str):
         tr:hover {{
             background: #ECEFF4;
         }}
+
+        .meta-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }}
+
+        .meta-card {{
+            padding: 1.5rem;
+            background: #F9FAFB;
+            border-radius: 4px;
+            border-left: 3px solid #5E81AC;
+        }}
+
+        .meta-label {{
+            font-size: 0.85rem;
+            color: #4C566A;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 0.5rem;
+        }}
+
+        .meta-value {{
+            font-size: 1.5rem;
+            font-weight: 300;
+            color: #2E3440;
+        }}
+
+        .checkpoint-list {{
+            list-style: none;
+            margin: 1rem 0;
+        }}
+
+        .checkpoint-list li {{
+            padding: 0.75rem 1rem;
+            background: #F9FAFB;
+            margin-bottom: 0.5rem;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85rem;
+            color: #4C566A;
+        }}
+
+        .checkpoint-phase {{
+            color: #5E81AC;
+            font-weight: 600;
+        }}
+
+        .retry-list {{
+            list-style: none;
+            margin: 1rem 0;
+        }}
+
+        .retry-list li {{
+            padding: 0.75rem 1rem;
+            background: #EBCB8B20;
+            margin-bottom: 0.5rem;
+            border-radius: 4px;
+            border-left: 3px solid #EBCB8B;
+            font-size: 0.85rem;
+            color: #4C566A;
+        }}
+
+        .retry-endpoint {{
+            color: #5E81AC;
+            font-weight: 600;
+        }}
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Microsoft 365 Cost Management</h1>
 
+        <div id="statusBanner"></div>
+
         <div class="tabs">
             <button class="tab active" onclick="showPage('overview')">Overview</button>
             <button class="tab" onclick="showPage('inactive')">Inactive Users</button>
             <button class="tab" onclick="showPage('utilization')">License Utilization</button>
             <button class="tab" onclick="showPage('actions')">Actions</button>
+            <button class="tab" onclick="showPage('collection')">Collection Info</button>
         </div>
 
         <div id="overview" class="page active">
@@ -444,6 +641,10 @@ def generate_html(data: Dict, output_path: str):
         <div id="actions" class="page">
             <!-- Actions page content will be inserted by JavaScript -->
         </div>
+
+        <div id="collection" class="page">
+            <!-- Collection info page content will be inserted by JavaScript -->
+        </div>
     </div>
 
     <script>
@@ -458,7 +659,10 @@ def generate_html(data: Dict, output_path: str):
             frost4: '#5E81AC',
             dark: '#2E3440',
             gray: '#4C566A',
-            lightGray: '#D8DEE9'
+            lightGray: '#D8DEE9',
+            warning: '#EBCB8B',
+            error: '#BF616A',
+            success: '#A3BE8C'
         }};
 
         // Helper functions
@@ -468,6 +672,18 @@ def generate_html(data: Dict, output_path: str):
                 currency: 'USD',
                 minimumFractionDigits: 2
             }}).format(value);
+        }}
+
+        function formatDateTime(isoString) {{
+            if (!isoString) return 'N/A';
+            const date = new Date(isoString);
+            return date.toLocaleString('en-US', {{
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }});
         }}
 
         function showPage(pageId) {{
@@ -484,14 +700,51 @@ def generate_html(data: Dict, output_path: str):
             // Show selected page
             document.getElementById(pageId).classList.add('active');
 
-            // Activate clicked tab
+            // Mark tab as active
             event.target.classList.add('active');
         }}
 
-        // Calculate savings
-        const inactiveMonthly = data.inactive_summary.reduce((sum, item) => sum + item.total_monthly_cost, 0);
-        const unassignedMonthly = data.costs_by_sku.reduce((sum, item) => sum + (item.available_licenses * item.monthly_cost), 0);
-        const totalSavings = inactiveMonthly + unassignedMonthly;
+        // Render status banner
+        function renderStatusBanner() {{
+            const status = data.metadata.status;
+            const isComplete = data.is_complete;
+
+            let bannerHtml = '';
+
+            if (!isComplete) {{
+                if (status === 'running') {{
+                    bannerHtml = `
+                        <div class="status-banner warning">
+                            <h3>⚠️ Collection In Progress</h3>
+                            <p>Data collection is currently running. Dashboard shows partial data. Refresh after collection completes.</p>
+                        </div>
+                    `;
+                }} else if (status === 'failed') {{
+                    bannerHtml = `
+                        <div class="status-banner error">
+                            <h3>❌ Collection Failed</h3>
+                            <p>The last data collection failed. Dashboard shows partial data from the incomplete run. Check Collection Info tab for details.</p>
+                        </div>
+                    `;
+                }}
+            }} else {{
+                bannerHtml = `
+                    <div class="status-banner success">
+                        <h3>✓ Complete Data</h3>
+                        <p>Dashboard shows data from completed collection run #${{data.metadata.run_id}} on ${{formatDateTime(data.metadata.timestamp)}}.</p>
+                    </div>
+                `;
+            }}
+
+            document.getElementById('statusBanner').innerHTML = bannerHtml;
+        }}
+
+        // Calculate total savings
+        const totalInactiveCost = data.inactive_summary.reduce((sum, item) => sum + item.total_monthly_cost, 0);
+        const totalUnassignedCost = data.costs_by_sku
+            .filter(item => item.available_licenses > 0)
+            .reduce((sum, item) => sum + (item.available_licenses * item.monthly_cost), 0);
+        const totalSavings = totalInactiveCost + totalUnassignedCost;
         const savingsPct = (totalSavings / data.costs.total_monthly * 100).toFixed(1);
 
         // Render Overview page
@@ -649,223 +902,279 @@ def generate_html(data: Dict, output_path: str):
                 .filter(item => item.available_licenses > 0)
                 .map(item => ({{
                     ...item,
-                    waste: item.available_licenses * item.monthly_cost
+                    waste_monthly: item.available_licenses * item.monthly_cost
                 }}))
-                .sort((a, b) => a.waste - b.waste);
+                .sort((a, b) => b.waste_monthly - a.waste_monthly);
 
-            const totalWaste = underutilized.reduce((sum, item) => sum + item.waste, 0);
-
-            if (underutilized.length === 0) {{
-                document.getElementById('utilization').innerHTML = '<p style="color: #4C566A;">All licenses are fully utilized.</p>';
-                return;
-            }}
-
-            let tableRows = '';
-            underutilized.forEach(item => {{
-                tableRows += `
-                    <tr>
-                        <td>${{item.sku_name}}</td>
-                        <td>${{item.available_licenses}}</td>
-                        <td>${{formatCurrency(item.monthly_cost)}}</td>
-                        <td>${{formatCurrency(item.waste)}}</td>
-                    </tr>
-                `;
-            }});
+            const totalWaste = underutilized.reduce((sum, item) => sum + item.waste_monthly, 0);
 
             const html = `
                 <h3>License Utilization</h3>
+                <p style="color: #4C566A; margin-bottom: 2rem;">Unassigned licenses costing money</p>
 
                 <div class="hero-metric">
                     <div class="hero-value">${{formatCurrency(totalWaste)}}</div>
-                    <div class="hero-label">wasted on unassigned licenses</div>
-                    <div class="hero-sublabel">${{formatCurrency(totalWaste * 12)}}/year</div>
+                    <div class="hero-label">monthly waste</div>
+                    <div class="hero-sublabel">${{formatCurrency(totalWaste * 12)}}/year from unassigned licenses</div>
                 </div>
 
-                <h3>Unassigned Licenses</h3>
-                <div class="chart-container">
-                    <canvas id="utilizationChart"></canvas>
-                </div>
-
-                <h3>Details</h3>
+                <h3>Unassigned Licenses by Type</h3>
                 <table>
                     <thead>
                         <tr>
                             <th>License Type</th>
-                            <th>Unassigned</th>
-                            <th>Cost per License</th>
-                            <th>Monthly Waste</th>
+                            <th style="text-align: right;">Unassigned</th>
+                            <th style="text-align: right;">Total</th>
+                            <th style="text-align: right;">Utilization</th>
+                            <th style="text-align: right;">Monthly Waste</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${{tableRows}}
+                        ${{underutilized.map(item => `
+                            <tr>
+                                <td>${{item.sku_name}}</td>
+                                <td style="text-align: right;">${{item.available_licenses}}</td>
+                                <td style="text-align: right;">${{item.total_licenses}}</td>
+                                <td style="text-align: right;">${{item.utilization_pct}}%</td>
+                                <td style="text-align: right;">${{formatCurrency(item.waste_monthly)}}</td>
+                            </tr>
+                        `).join('')}}
                     </tbody>
                 </table>
             `;
 
             document.getElementById('utilization').innerHTML = html;
-
-            // Create chart
-            const ctx = document.getElementById('utilizationChart').getContext('2d');
-            new Chart(ctx, {{
-                type: 'bar',
-                data: {{
-                    labels: underutilized.map(item => item.sku_name),
-                    datasets: [{{
-                        data: underutilized.map(item => item.available_licenses),
-                        backgroundColor: colors.frost2,
-                        borderWidth: 0
-                    }}]
-                }},
-                options: {{
-                    indexAxis: 'y',
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {{
-                        legend: {{
-                            display: false
-                        }},
-                        tooltip: {{
-                            callbacks: {{
-                                label: function(context) {{
-                                    const index = context.dataIndex;
-                                    const licenses = underutilized[index].available_licenses;
-                                    const waste = underutilized[index].waste;
-                                    return licenses + ' licenses · ' + formatCurrency(waste) + '/mo';
-                                }}
-                            }}
-                        }}
-                    }},
-                    scales: {{
-                        x: {{
-                            display: false,
-                            grid: {{
-                                display: false
-                            }}
-                        }},
-                        y: {{
-                            grid: {{
-                                display: false
-                            }},
-                            ticks: {{
-                                font: {{
-                                    size: 12
-                                }}
-                            }}
-                        }}
-                    }}
-                }}
-            }});
         }}
 
         // Render Actions page
         function renderActions() {{
             const actions = [];
 
-            // Add inactive user actions
-            data.inactive_summary.slice(0, 5).forEach(item => {{
+            // Inactive users action
+            const totalInactive = data.inactive_summary.reduce((sum, item) => sum + item.inactive_count, 0);
+            const inactiveCost = data.inactive_summary.reduce((sum, item) => sum + item.total_monthly_cost, 0);
+
+            if (totalInactive > 0) {{
                 actions.push({{
-                    action: `Review ${{item.inactive_count}} inactive ${{item.sku_name}} users`,
-                    savings: item.total_monthly_cost,
-                    note: `${{data.inactive_days}}+ days without sign-in`
+                    title: 'Remove licenses from inactive users',
+                    impact: formatCurrency(inactiveCost * 12) + '/year',
+                    description: `${{totalInactive}} users haven't signed in for ${{data.inactive_days}}+ days. Cross-reference with HR termination records before removing licenses.`
                 }});
-            }});
+            }}
 
-            // Add unassigned license actions
-            const unassigned = data.costs_by_sku
-                .filter(item => item.available_licenses > 0)
-                .map(item => ({{
-                    ...item,
-                    potential_savings: item.available_licenses * item.monthly_cost
-                }}))
-                .sort((a, b) => b.potential_savings - a.potential_savings)
-                .slice(0, 5);
+            // Unassigned licenses action
+            const underutilized = data.costs_by_sku.filter(item => item.available_licenses > 0);
+            const unassignedCost = underutilized.reduce((sum, item) => sum + (item.available_licenses * item.monthly_cost), 0);
 
-            unassigned.forEach(item => {{
+            if (underutilized.length > 0) {{
                 actions.push({{
-                    action: `Remove ${{item.available_licenses}} unassigned ${{item.sku_name}} licenses`,
-                    savings: item.potential_savings,
-                    note: 'Currently unused'
+                    title: 'Cancel unassigned licenses',
+                    impact: formatCurrency(unassignedCost * 12) + '/year',
+                    description: `${{underutilized.reduce((sum, item) => sum + item.available_licenses, 0)}} licenses are purchased but not assigned. Consider canceling during next renewal.`
                 }});
-            }});
+            }}
 
-            // Sort by savings
-            actions.sort((a, b) => b.savings - a.savings);
+            // Low utilization action
+            const lowUtil = data.costs_by_sku.filter(item =>
+                item.utilization_pct < 80 &&
+                item.total_licenses > 5 &&
+                item.available_licenses > 0
+            );
 
-            let actionItems = '';
-            actions.forEach((item, index) => {{
-                actionItems += `
-                    <li class="action-item">
-                        <div class="action-title">${{index + 1}}. ${{item.action}}</div>
-                        <div class="action-detail">${{formatCurrency(item.savings)}}/month · ${{item.note}}</div>
-                    </li>
-                `;
-            }});
+            if (lowUtil.length > 0) {{
+                const lowUtilCost = lowUtil.reduce((sum, item) => sum + (item.available_licenses * item.monthly_cost), 0);
+                actions.push({{
+                    title: 'Review low-utilization license types',
+                    impact: formatCurrency(lowUtilCost * 12) + '/year potential',
+                    description: `${{lowUtil.length}} license types have <80% utilization. Review if full allocation is still needed.`
+                }});
+            }}
 
             const html = `
-                <h3>Actions</h3>
+                <h3>Recommended Actions</h3>
+                <p style="color: #4C566A; margin-bottom: 2rem;">Prioritized by annual savings potential</p>
 
-                <div class="hero-metric">
-                    <div class="hero-value">${{formatCurrency(totalSavings)}}</div>
-                    <div class="hero-label">potential monthly savings</div>
-                </div>
-
-                <h3>Recommended Steps</h3>
-                <ul class="action-list">
-                    ${{actionItems}}
+                <ul class="actions-list">
+                    ${{actions.map(action => `
+                        <li>
+                            <div class="action-title">${{action.title}}</div>
+                            <div class="action-impact">💰 ${{action.impact}}</div>
+                            <div class="action-desc">${{action.description}}</div>
+                        </li>
+                    `).join('')}}
                 </ul>
 
-                <div class="checklist">
-                    <h3 style="margin: 0 0 1rem 0;">Before Taking Action</h3>
-                    <p style="color: #4C566A; margin-bottom: 1rem;">Verify each user or license before removal:</p>
-                    <ul>
-                        <li>Cross-reference with HR termination records</li>
-                        <li>Check for extended leave (medical, parental, sabbatical)</li>
-                        <li>Exclude service accounts and special cases</li>
-                        <li>Obtain IT leadership approval</li>
-                    </ul>
-                </div>
+                <h3>Before Removing Licenses</h3>
+                <ul style="margin: 1rem 0; padding-left: 2rem; color: #4C566A; line-height: 1.8;">
+                    <li>Cross-reference with HR termination records</li>
+                    <li>Check for extended leave (medical, parental, sabbatical)</li>
+                    <li>Exclude service accounts and automation users</li>
+                    <li>Obtain IT leadership approval</li>
+                    <li>Document all removals for audit trail</li>
+                </ul>
 
-                <div class="checklist">
-                    <h3 style="margin: 0 0 1rem 0;">Ongoing Process</h3>
-                    <p style="color: #4C566A; margin-bottom: 1rem;">Establish regular review cycle:</p>
-                    <ul>
-                        <li>Monthly: Review unassigned licenses</li>
-                        <li>Quarterly: Analyze inactive users</li>
-                        <li>Annually: Audit all license assignments</li>
-                    </ul>
-                </div>
+                <h3>Ongoing Process</h3>
+                <p style="color: #4C566A; line-height: 1.8; margin-top: 1rem;">
+                    Run monthly audits to catch license drift. Set calendar reminders to regenerate this dashboard
+                    before each billing cycle. Review inactive users quarterly with department managers.
+                </p>
             `;
 
             document.getElementById('actions').innerHTML = html;
         }}
 
+        // Render Collection Info page
+        function renderCollection() {{
+            const meta = data.metadata;
+            const statusClass = meta.status === 'completed' ? 'success' : (meta.status === 'failed' ? 'error' : 'warning');
+            const statusEmoji = meta.status === 'completed' ? '✓' : (meta.status === 'failed' ? '❌' : '⏳');
+
+            let html = `
+                <h3>Collection Run Information</h3>
+
+                <div class="meta-grid">
+                    <div class="meta-card">
+                        <div class="meta-label">Status</div>
+                        <div class="meta-value">${{statusEmoji}} ${{meta.status}}</div>
+                    </div>
+                    <div class="meta-card">
+                        <div class="meta-label">Run ID</div>
+                        <div class="meta-value">#${{meta.run_id}}</div>
+                    </div>
+                    <div class="meta-card">
+                        <div class="meta-label">Timestamp</div>
+                        <div class="meta-value" style="font-size: 1.1rem;">${{formatDateTime(meta.timestamp)}}</div>
+                    </div>
+                    <div class="meta-card">
+                        <div class="meta-label">Users Collected</div>
+                        <div class="meta-value">${{meta.total_users.toLocaleString()}}</div>
+                    </div>
+                    <div class="meta-card">
+                        <div class="meta-label">Licenses Collected</div>
+                        <div class="meta-value">${{meta.total_licenses}}</div>
+                    </div>
+                    <div class="meta-card">
+                        <div class="meta-label">Dashboard Generated</div>
+                        <div class="meta-value" style="font-size: 1.1rem;">${{formatDateTime(data.generated_at)}}</div>
+                    </div>
+                </div>
+            `;
+
+            // Show progress if available
+            if (meta.progress !== undefined) {{
+                const progressPct = meta.progress_pct.toFixed(1);
+                html += `
+                    <h3>Collection Progress</h3>
+                    <div class="meta-grid">
+                        <div class="meta-card">
+                            <div class="meta-label">Last Phase</div>
+                            <div class="meta-value" style="font-size: 1.1rem;">${{meta.last_phase}}</div>
+                        </div>
+                        <div class="meta-card">
+                            <div class="meta-label">Progress</div>
+                            <div class="meta-value">${{meta.progress}} / ${{meta.total}}</div>
+                        </div>
+                        <div class="meta-card">
+                            <div class="meta-label">Percentage</div>
+                            <div class="meta-value">${{progressPct}}%</div>
+                        </div>
+                    </div>
+                `;
+
+                if (meta.progress_message) {{
+                    html += `<p style="color: #4C566A; margin-top: 1rem;">${{meta.progress_message}}</p>`;
+                }}
+            }}
+
+            // Show error message if available
+            if (meta.error_message) {{
+                html += `
+                    <h3>Error Details</h3>
+                    <div class="status-banner error">
+                        <p>${{meta.error_message}}</p>
+                    </div>
+                `;
+            }}
+
+            // Show checkpoints
+            if (data.checkpoints && data.checkpoints.length > 0) {{
+                html += `
+                    <h3>Recent Checkpoints</h3>
+                    <p style="color: #4C566A; margin-bottom: 1rem;">Last 10 checkpoints from collection run</p>
+                    <ul class="checkpoint-list">
+                        ${{data.checkpoints.map(cp => `
+                            <li>
+                                <span class="checkpoint-phase">${{cp.phase}}</span>
+                                ${{cp.progress}}/${{cp.total}}
+                                at ${{formatDateTime(cp.timestamp)}}
+                                ${{cp.details ? ' — ' + cp.details : ''}}
+                            </li>
+                        `).join('')}}
+                    </ul>
+                `;
+            }}
+
+            // Show retry information
+            if (data.retry_info && data.retry_info.total_retries > 0) {{
+                html += `
+                    <h3>Rate Limiting & Retries</h3>
+                    <div class="meta-grid">
+                        <div class="meta-card">
+                            <div class="meta-label">Total Retries</div>
+                            <div class="meta-value">${{data.retry_info.total_retries}}</div>
+                        </div>
+                    </div>
+                `;
+
+                if (data.retry_info.recent_retries && data.retry_info.recent_retries.length > 0) {{
+                    html += `
+                        <p style="color: #4C566A; margin: 1rem 0;">Recent retry attempts (last 10)</p>
+                        <ul class="retry-list">
+                            ${{data.retry_info.recent_retries.map(retry => `
+                                <li>
+                                    <span class="retry-endpoint">${{retry.endpoint}}</span>
+                                    — attempt #${{retry.attempt}}, delay ${{retry.delay}}s
+                                    at ${{formatDateTime(retry.timestamp)}}
+                                    <br><small>${{retry.reason}}</small>
+                                </li>
+                            `).join('')}}
+                        </ul>
+                    `;
+                }}
+            }}
+
+            document.getElementById('collection').innerHTML = html;
+        }}
+
         // Download inactive users as CSV
         function downloadInactiveUsers() {{
-            const csvContent = [
-                ['User Principal Name', 'License Type', 'Monthly Cost', 'Last Sign In', 'Days Inactive'].join(','),
+            const csv = [
+                ['User Principal Name', 'License Type', 'Monthly Cost', 'Last Sign-In', 'Days Inactive'],
                 ...data.inactive_users.map(user => [
                     user.user_principal_name,
                     user.sku_name,
                     user.monthly_cost,
                     user.last_sign_in_date || 'Never',
                     user.days_inactive === 9999 ? 'Never' : user.days_inactive
-                ].join(','))
-            ].join('\\n');
+                ])
+            ].map(row => row.join(',')).join('\\n');
 
-            const blob = new Blob([csvContent], {{ type: 'text/csv' }});
-            const url = window.URL.createObjectURL(blob);
+            const blob = new Blob([csv], {{ type: 'text/csv' }});
+            const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `inactive_users_${{new Date().toISOString().split('T')[0]}}.csv`;
+            a.download = 'inactive_users.csv';
             a.click();
-            window.URL.revokeObjectURL(url);
+            URL.revokeObjectURL(url);
         }}
 
         // Initialize dashboard
+        renderStatusBanner();
         renderOverview();
         renderInactive();
         renderUtilization();
         renderActions();
+        renderCollection();
     </script>
 </body>
 </html>
@@ -878,25 +1187,21 @@ def generate_html(data: Dict, output_path: str):
 
 
 def main():
-    """Main entry point."""
     load_dotenv()
 
-    db_path = os.getenv("DATABASE_PATH", "./data/m365_costs.db")
-    output_path = os.getenv("DASHBOARD_OUTPUT", "./m365_dashboard.html")
+    db_path = os.getenv('DATABASE_PATH', './data/m365_costs.db')
+    output_path = os.getenv('DASHBOARD_OUTPUT', './m365_dashboard.html')
+    inactive_days = int(os.getenv('INACTIVE_DAYS', '90'))
 
     if not os.path.exists(db_path):
-        print(f"Database not found: {db_path}")
+        print(f"Error: Database not found at {db_path}")
         print("Run collect_m365_data.py first to collect data.")
         sys.exit(1)
 
-    print("Fetching data from database...")
-    data = get_dashboard_data(db_path)
-
-    print("Generating HTML dashboard...")
+    print(f"Generating dashboard from {db_path}...")
+    data = get_dashboard_data(db_path, inactive_days)
     generate_html(data, output_path)
 
-    print(f"\nDashboard ready! Open {output_path} in your browser.")
 
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
