@@ -6,16 +6,22 @@ Authenticates using MSAL (Microsoft Authentication Library) with
 client credentials flow, fetches license data, user activity, and
 license assignments from Graph API, then stores everything in SQLite.
 
+Supports incremental collection with checkpoints for resilience
+against interruptions and rate limiting.
+
 Requires .env file with:
     TENANT_ID=your-tenant-id
     CLIENT_ID=your-app-client-id
     CLIENT_SECRET=your-app-secret
     DATABASE_PATH=./data/m365_costs.db (optional)
+    BATCH_SIZE=100 (optional, users per batch)
 """
 
+import json
 import os
 import sqlite3
 import sys
+import time
 from datetime import datetime
 from typing import Any
 
@@ -101,6 +107,48 @@ def create_database_schema(db_path: str) -> None:
         )
     """)
 
+    # Collection checkpoints table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS collection_checkpoints (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            collection_run_id INTEGER NOT NULL,
+            timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+            phase TEXT NOT NULL,
+            progress INTEGER NOT NULL,
+            total INTEGER NOT NULL,
+            details TEXT,
+            FOREIGN KEY (collection_run_id) REFERENCES collection_runs(id)
+        )
+    """)
+
+    # Collection progress table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS collection_progress (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            collection_run_id INTEGER NOT NULL,
+            timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+            phase TEXT NOT NULL,
+            progress INTEGER NOT NULL,
+            total INTEGER NOT NULL,
+            message TEXT,
+            FOREIGN KEY (collection_run_id) REFERENCES collection_runs(id)
+        )
+    """)
+
+    # Retry log table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS retry_log (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            collection_run_id INTEGER NOT NULL,
+            timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+            endpoint TEXT NOT NULL,
+            attempt INTEGER NOT NULL,
+            delay INTEGER NOT NULL,
+            reason TEXT,
+            FOREIGN KEY (collection_run_id) REFERENCES collection_runs(id)
+        )
+    """)
+
     # Create indexes
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_licenses_run
@@ -113,6 +161,14 @@ def create_database_schema(db_path: str) -> None:
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_user_activity_run
         ON user_activity(collection_run_id)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_checkpoints_run
+        ON collection_checkpoints(collection_run_id, timestamp DESC)
+    """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_progress_run
+        ON collection_progress(collection_run_id, timestamp DESC)
     """)
 
     conn.commit()
@@ -279,6 +335,315 @@ def store_user_licenses(
                     sku_id
                 ) VALUES (?, ?, ?)
             """, (run_id, upn, sku_id))
+
+    conn.commit()
+    conn.close()
+
+
+def create_checkpoint(
+    db_path: str,
+    run_id: int,
+    phase: str,
+    progress: int,
+    total: int,
+    details: dict[str, Any] | None = None
+) -> None:
+    """
+    Create a checkpoint during collection for resumability.
+
+    Args:
+        db_path: Path to SQLite database file
+        run_id: Collection run ID
+        phase: Current collection phase (e.g., 'users', 'user_licenses')
+        progress: Number of items processed
+        total: Total number of items to process
+        details: Additional details (e.g., last processed item)
+    """
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    details_json = json.dumps(details) if details else None
+
+    cursor.execute("""
+        INSERT INTO collection_checkpoints (
+            collection_run_id,
+            phase,
+            progress,
+            total,
+            details
+        ) VALUES (?, ?, ?, ?, ?)
+    """, (run_id, phase, progress, total, details_json))
+
+    conn.commit()
+    conn.close()
+
+
+def get_latest_checkpoint(
+    db_path: str,
+    run_id: int
+) -> dict[str, Any] | None:
+    """
+    Get the most recent checkpoint for a collection run.
+
+    Args:
+        db_path: Path to SQLite database file
+        run_id: Collection run ID
+
+    Returns:
+        Checkpoint dict or None if no checkpoint exists
+    """
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT phase, progress, total, details
+        FROM collection_checkpoints
+        WHERE collection_run_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+    """, (run_id,))
+
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return None
+
+    return {
+        'phase': row[0],
+        'progress': row[1],
+        'total': row[2],
+        'details': json.loads(row[3]) if row[3] else {}
+    }
+
+
+def should_resume(db_path: str, run_id: int) -> bool:
+    """
+    Check if a collection run has a checkpoint and can be resumed.
+
+    Args:
+        db_path: Path to SQLite database file
+        run_id: Collection run ID
+
+    Returns:
+        True if can resume, False otherwise
+    """
+    checkpoint = get_latest_checkpoint(db_path, run_id)
+    return checkpoint is not None
+
+
+def store_user_activity_batch(
+    db_path: str,
+    run_id: int,
+    users: list[dict[str, Any]],
+    batch_start: int,
+    total_count: int
+) -> None:
+    """
+    Store user activity for a batch with checkpoint.
+
+    Args:
+        db_path: Path to SQLite database file
+        run_id: Collection run ID
+        users: List of user objects for this batch
+        batch_start: Starting index of this batch
+        total_count: Total number of users
+    """
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    last_user = None
+    for user in users:
+        upn = user['userPrincipalName']
+        sign_in = user.get('signInActivity')
+        last_sign_in = None
+
+        if sign_in:
+            last_sign_in = sign_in.get('lastSignInDateTime')
+
+        cursor.execute("""
+            INSERT OR REPLACE INTO user_activity (
+                collection_run_id,
+                user_principal_name,
+                last_sign_in_date
+            ) VALUES (?, ?, ?)
+        """, (run_id, upn, last_sign_in))
+
+        last_user = upn
+
+    conn.commit()
+    conn.close()
+
+    # Create checkpoint and update progress after batch
+    progress = batch_start + len(users)
+    create_checkpoint(
+        db_path,
+        run_id,
+        'user_activity',
+        progress,
+        total_count,
+        {'last_user': last_user}
+    )
+    update_progress(
+        db_path,
+        run_id,
+        'user_activity',
+        progress,
+        total_count,
+        f'Processed {progress}/{total_count} users'
+    )
+
+
+def update_progress(
+    db_path: str,
+    run_id: int,
+    phase: str,
+    progress: int,
+    total: int,
+    message: str | None = None
+) -> None:
+    """
+    Update collection progress for monitoring.
+
+    Args:
+        db_path: Path to SQLite database file
+        run_id: Collection run ID
+        phase: Current phase
+        progress: Items processed
+        total: Total items
+        message: Status message
+    """
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO collection_progress (
+            collection_run_id,
+            phase,
+            progress,
+            total,
+            message
+        ) VALUES (?, ?, ?, ?, ?)
+    """, (run_id, phase, progress, total, message))
+
+    conn.commit()
+    conn.close()
+
+
+def get_collection_status(db_path: str, run_id: int) -> dict[str, Any]:
+    """
+    Get current status of a collection run.
+
+    Args:
+        db_path: Path to SQLite database file
+        run_id: Collection run ID
+
+    Returns:
+        Status dict with run_id, phase, progress, total, percentage
+    """
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT phase, progress, total, message
+        FROM collection_progress
+        WHERE collection_run_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+    """, (run_id,))
+
+    row = cursor.fetchone()
+    conn.close()
+
+    if not row:
+        return {
+            'run_id': run_id,
+            'current_phase': None,
+            'progress': 0,
+            'total': 0,
+            'percentage': 0.0
+        }
+
+    phase, progress, total, message = row
+    percentage = (progress / total * 100) if total > 0 else 0
+
+    return {
+        'run_id': run_id,
+        'current_phase': phase,
+        'progress': progress,
+        'total': total,
+        'percentage': percentage,
+        'message': message
+    }
+
+
+def is_rate_limited(response: Any) -> bool:
+    """
+    Check if response indicates rate limiting.
+
+    Args:
+        response: requests.Response object
+
+    Returns:
+        True if rate limited, False otherwise
+    """
+    return response.status_code == 429
+
+
+def calculate_retry_delay(response: Any, attempt: int) -> int:
+    """
+    Calculate retry delay using Retry-After header or exponential backoff.
+
+    Args:
+        response: requests.Response object
+        attempt: Retry attempt number (0-indexed)
+
+    Returns:
+        Delay in seconds
+    """
+    # Check for Retry-After header
+    retry_after = response.headers.get('Retry-After')
+    if retry_after:
+        try:
+            return int(retry_after)
+        except ValueError:
+            pass
+
+    # Exponential backoff: 2^attempt seconds
+    return 2 ** attempt
+
+
+def log_retry_attempt(
+    db_path: str,
+    run_id: int,
+    endpoint: str,
+    attempt: int,
+    delay: int,
+    reason: str | None = None
+) -> None:
+    """
+    Log a retry attempt for monitoring.
+
+    Args:
+        db_path: Path to SQLite database file
+        run_id: Collection run ID
+        endpoint: API endpoint being retried
+        attempt: Attempt number
+        delay: Delay in seconds
+        reason: Reason for retry
+    """
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO retry_log (
+            collection_run_id,
+            endpoint,
+            attempt,
+            delay,
+            reason
+        ) VALUES (?, ?, ?, ?, ?)
+    """, (run_id, endpoint, attempt, delay, reason))
 
     conn.commit()
     conn.close()
