@@ -1,8 +1,0 @@
-# Tests directory
-#
-# TODO: Implement test suite following TDD practices
-#
-# Test structure:
-# - test_data_collection.py - Tests for collect_m365_data.py
-# - test_dashboard_generation.py - Tests for generate_dashboard.py
-# - test_database.py - Database schema and query tests
