@@ -13,15 +13,17 @@ import sys
 from dotenv import load_dotenv
 
 
-# Microsoft 365 SKU pricing (as of 2024, monthly per user)
-# Source: Microsoft 365 pricing pages
+# Microsoft 365 SKU pricing
+# NOTE: These prices reflect actual billed rates from customer invoices,
+# which are typically discounted from Microsoft's list prices.
+# Adjust these to match your organization's actual costs.
 SKU_PRICING = {
-    # Enterprise plans
-    'ENTERPRISEPREMIUM': ('Microsoft 365 E5', 57.00),
-    'ENTERPRISEPACK': ('Microsoft 365 E3', 36.00),
+    # Enterprise plans (discounted rates)
+    'ENTERPRISEPREMIUM': ('Microsoft 365 E5', 45.60),
+    'ENTERPRISEPACK': ('Microsoft 365 E3', 27.60),
     'STANDARDPACK': ('Office 365 E1', 8.00),
     'STANDARDWOFFPACK': ('Office 365 E2', 10.00),
-    'DESKLESSPACK': ('Microsoft 365 F3', 8.00),
+    'DESKLESSPACK': ('Microsoft 365 F3', 4.80),
 
     # Business plans
     'O365_BUSINESS_ESSENTIALS': ('Microsoft 365 Business Basic', 6.00),
@@ -37,7 +39,7 @@ SKU_PRICING = {
     'SPE_E5': ('Microsoft 365 E5', 57.00),
 
     # Exchange
-    'EXCHANGESTANDARD': ('Exchange Online Plan 1', 4.00),
+    'EXCHANGESTANDARD': ('Exchange Online Plan 1', 4.80),
     'EXCHANGEENTERPRISE': ('Exchange Online Plan 2', 8.00),
     'EXCHANGEDESKLESS': ('Exchange Online Kiosk', 2.00),
 
@@ -48,48 +50,49 @@ SKU_PRICING = {
 
     # Teams & Communication
     'MCOSTANDARD': ('Microsoft Teams Essentials', 4.00),
-    'MCOPSTN1': ('Calling Plan', 12.00),
+    'MCOPSTN1': ('Calling Plan', 14.40),
     'MCOPSTNC': ('Communication Credits', 0.00),  # Variable
-    'PHONESYSTEM_VIRTUALUSER': ('Phone System Virtual User', 15.00),
+    'PHONESYSTEM_VIRTUALUSER': ('Phone System Virtual User', 0.00),  # Included with E5
     'Microsoft_Teams_Rooms_Basic': ('Teams Rooms Basic', 0.00),  # Free
-    'Microsoft_Teams_Rooms_Pro': ('Teams Rooms Pro', 40.00),
+    'Microsoft_Teams_Rooms_Pro': ('Teams Rooms Pro', 48.00),
 
     # Power Platform
     'FLOW_FREE': ('Power Automate Free', 0.00),
-    'FLOW_PER_USER': ('Power Automate per user', 15.00),
-    'POWERAUTOMATE_ATTENDED_RPA': ('Power Automate attended RPA', 40.00),
-    'POWERAPPS_PER_USER': ('Power Apps per user', 20.00),
-    'POWERAPPS_PER_APP_NEW': ('Power Apps per app', 5.00),
+    'FLOW_PER_USER': ('Power Automate per user', 18.00),
+    'POWERAUTOMATE_ATTENDED_RPA': ('Power Automate Premium', 18.00),
+    'POWERAPPS_PER_USER': ('Power Apps Premium', 24.00),
+    'POWERAPPS_PER_APP_NEW': ('Power Apps per app', 6.00),
     'POWERAPPS_DEV': ('Power Apps Developer', 0.00),  # Free
-    'POWER_BI_PRO': ('Power BI Pro', 9.99),
-    'POWER_BI_STANDARD': ('Power BI Premium', 20.00),
+    'POWER_BI_PRO': ('Power BI Pro', 12.00),
+    'POWER_BI_STANDARD': ('Power BI Premium', 0.00),  # Not billed
+    'FORMS_PRO': ('Microsoft Forms Pro', 0.00),  # Not billed
 
     # Project & Visio
     'PROJECTPROFESSIONAL': ('Project Plan 5', 55.00),
     'PROJECT_P1': ('Project Plan 1', 10.00),
     'PROJECTESSENTIALS': ('Project Plan 3', 30.00),
-    'VISIOCLIENT': ('Visio Plan 2', 15.00),
+    'VISIOCLIENT': ('Visio Plan 2', 18.00),
     'VISIO_PLAN1': ('Visio Plan 1', 5.00),
 
     # Dynamics 365
     'DYN365_BUSCENTRAL_ESSENTIAL': ('Dynamics 365 Business Central Essentials', 70.00),
-    'DYN365_BUSCENTRAL_TEAM_MEMBER': ('Dynamics 365 Business Central Team Member', 8.00),
+    'DYN365_BUSCENTRAL_TEAM_MEMBER': ('Dynamics 365 Business Central Team Member', 0.00),  # Not billed
     'DYN365_FINANCIALS_ACCOUNTANT_SKU': ('Dynamics 365 Business Central Accountant', 0.00),  # Free
-    'D365_MARKETING_USER': ('Dynamics 365 Marketing', 1500.00),  # Per tenant
+    'D365_MARKETING_USER': ('Dynamics 365 Marketing', 0.00),  # Not billed / trial
 
     # Security & Compliance
     'AAD_PREMIUM': ('Azure AD Premium P1', 6.00),
-    'AAD_PREMIUM_P2': ('Azure AD Premium P2', 9.00),
-    'INTUNE_A': ('Microsoft Intune', 6.00),
+    'AAD_PREMIUM_P2': ('Azure AD Premium P2', 10.80),
+    'INTUNE_A': ('Microsoft Intune', 9.60),
     'INTUNE_A_D': ('Microsoft Intune Device', 6.00),
-    'INTUNE_DEVICE_ENTERPRISE_New': ('Microsoft Intune Device', 6.00),
+    'INTUNE_DEVICE_ENTERPRISE_New': ('Microsoft Intune Device', 3.24),
     'EMS': ('Enterprise Mobility + Security E3', 10.60),
 
     # Microsoft 365 Copilot
-    'Microsoft_365_Copilot': ('Microsoft 365 Copilot', 30.00),
+    'Microsoft_365_Copilot': ('Microsoft 365 Copilot', 0.00),  # Not yet billed / trial
+    'Microsoft_365_E3_(no_Teams)': ('Microsoft 365 E3 (no Teams)', 40.56),
 
     # Forms & Stream
-    'FORMS_PRO': ('Microsoft Forms Pro', 200.00),  # Per tenant
     'STREAM': ('Microsoft Stream', 0.00),  # Included
 
     # Other/Legacy
