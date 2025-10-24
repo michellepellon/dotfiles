@@ -5,10 +5,10 @@
 ### Run Complete Analysis
 ```bash
 # 1. Collect data from M365 tenant
-uv run python tools/collect_m365_data.py
+uv run python scripts/collect_m365_data.py
 
 # 2. Generate dashboard
-uv run python tools/generate_dashboard.py
+uv run python scripts/generate_dashboard.py
 
 # 3. Open in browser
 open m365_dashboard.html
@@ -19,10 +19,10 @@ open m365_dashboard.html
 ### Quarterly Cost Review
 ```bash
 # Collect latest data
-uv run python tools/collect_m365_data.py
+uv run python scripts/collect_m365_data.py
 
 # Generate dashboard
-uv run python tools/generate_dashboard.py
+uv run python scripts/generate_dashboard.py
 
 # Review dashboard in browser
 open m365_dashboard.html
@@ -40,7 +40,7 @@ open m365_dashboard.html
 ```bash
 # Set custom inactivity threshold (default 90 days)
 export INACTIVE_DAYS=60
-uv run python tools/generate_dashboard.py
+uv run python scripts/generate_dashboard.py
 
 # Review more aggressive targets
 open m365_dashboard.html
@@ -52,8 +52,8 @@ open m365_dashboard.html
 ### Monthly License Audit
 ```bash
 # Check for new unassigned licenses
-uv run python tools/collect_m365_data.py
-uv run python tools/generate_dashboard.py
+uv run python scripts/collect_m365_data.py
+uv run python scripts/generate_dashboard.py
 
 # Open Utilization tab
 # - Review unassigned licenses
@@ -61,11 +61,11 @@ uv run python tools/generate_dashboard.py
 # - Reduce license counts in M365 admin center
 ```
 
-## Data Collection (TODO: collect_m365_data.py)
+## Data Collection
 
 ### Basic Collection
 ```python
-# tools/collect_m365_data.py (to be implemented)
+# scripts/collect_m365_data.py
 """
 Collect M365 license and usage data via Graph API.
 
@@ -116,21 +116,21 @@ if "access_token" in result:
 ```bash
 # Check 60-day inactive users instead of 90
 export INACTIVE_DAYS=60
-uv run python tools/generate_dashboard.py
+uv run python scripts/generate_dashboard.py
 ```
 
 ### Custom Database Location
 ```bash
 # Use different database
 export DATABASE_PATH=/path/to/m365_data.db
-uv run python tools/generate_dashboard.py
+uv run python scripts/generate_dashboard.py
 ```
 
 ### Custom Output Path
 ```bash
 # Save dashboard to specific location
 export DASHBOARD_OUTPUT=/path/to/output/dashboard.html
-uv run python tools/generate_dashboard.py
+uv run python scripts/generate_dashboard.py
 ```
 
 ## Database Queries

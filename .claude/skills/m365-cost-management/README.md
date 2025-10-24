@@ -24,7 +24,7 @@ Analyze M365 license costs, identify savings opportunities, and generate actiona
 ### Install Dependencies
 
 ```bash
-cd ~/.claude/skills/cost/saas/m365
+cd ~/.claude/skills/m365-cost-management
 uv sync
 ```
 
