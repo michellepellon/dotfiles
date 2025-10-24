@@ -35,6 +35,13 @@ def sample_m365_and_adp_data(temp_db):
     conn = sqlite3.connect(temp_db)
     cursor = conn.cursor()
 
+    # Create a collection run
+    cursor.execute("""
+        INSERT INTO collection_runs (timestamp, status, records_collected)
+        VALUES (?, ?, ?)
+    """, (datetime.now().isoformat(), 'completed', 4))
+    run_id = cursor.lastrowid
+
     # Create ADP tables
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS adp_employees (
@@ -83,16 +90,29 @@ def sample_m365_and_adp_data(temp_db):
     #        orphan.user (not in ADP)
     today = datetime.now()
     activity_data = [
-        (1, 'john.smith@company.com', (today - timedelta(days=5)).isoformat()),
-        (1, 'jane.doe@company.com', (today - timedelta(days=10)).isoformat()),
-        (1, 'bob.johnson@company.com', (today - timedelta(days=120)).isoformat()),
-        (1, 'orphan.user@company.com', (today - timedelta(days=2)).isoformat()),
+        (run_id, 'john.smith@company.com', (today - timedelta(days=5)).isoformat()),
+        (run_id, 'jane.doe@company.com', (today - timedelta(days=10)).isoformat()),
+        (run_id, 'bob.johnson@company.com', (today - timedelta(days=120)).isoformat()),
+        (run_id, 'orphan.user@company.com', (today - timedelta(days=2)).isoformat()),
     ]
 
     cursor.executemany("""
         INSERT INTO user_activity (collection_run_id, user_principal_name, last_sign_in_date)
         VALUES (?, ?, ?)
     """, activity_data)
+
+    # Insert email aliases for testing alias matching
+    # orphan.user has an alias but still not in ADP
+    # bob.johnson has an alias but is terminated
+    alias_data = [
+        (run_id, 'orphan.user@company.com', 'orphan@elsewhere.com', 'proxyAddress'),
+        (run_id, 'bob.johnson@company.com', 'bjohnson@company.com', 'proxyAddress'),
+    ]
+
+    cursor.executemany("""
+        INSERT INTO user_email_aliases (collection_run_id, user_principal_name, email_address, email_type)
+        VALUES (?, ?, ?, ?)
+    """, alias_data)
 
     conn.commit()
     conn.close()

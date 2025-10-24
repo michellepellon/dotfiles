@@ -165,6 +165,8 @@ def find_m365_users_not_in_adp(db_path: str) -> list[dict]:
     """
     Find M365 users not in ADP (orphaned licenses).
 
+    Checks user_principal_name AND all email aliases against ADP work_email.
+
     Args:
         db_path: Path to SQLite database
 
@@ -174,14 +176,24 @@ def find_m365_users_not_in_adp(db_path: str) -> list[dict]:
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
+    # Find users where neither UPN nor any email alias matches ADP
     cursor.execute("""
         SELECT DISTINCT
             ua.user_principal_name,
             ua.last_sign_in_date
         FROM user_activity ua
-        LEFT JOIN adp_employees adp
-            ON LOWER(ua.user_principal_name) = LOWER(adp.work_email)
-        WHERE adp.work_email IS NULL
+        WHERE ua.collection_run_id = (SELECT MAX(id) FROM collection_runs)
+            AND NOT EXISTS (
+                SELECT 1 FROM adp_employees adp
+                WHERE LOWER(adp.work_email) = LOWER(ua.user_principal_name)
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM user_email_aliases uea
+                INNER JOIN adp_employees adp
+                    ON LOWER(uea.email_address) = LOWER(adp.work_email)
+                WHERE uea.user_principal_name = ua.user_principal_name
+                    AND uea.collection_run_id = ua.collection_run_id
+            )
         ORDER BY ua.user_principal_name
     """)
 
@@ -203,6 +215,8 @@ def find_adp_users_inactive_in_m365(
     """
     Find ADP users who are inactive in M365.
 
+    Matches ADP work_email against user_principal_name AND all email aliases.
+
     Args:
         db_path: Path to SQLite database
         inactive_days: Days threshold for inactivity
@@ -214,9 +228,12 @@ def find_adp_users_inactive_in_m365(
     cursor = conn.cursor()
 
     cutoff_date = (datetime.now() - timedelta(days=inactive_days)).isoformat()
+    run_id = '(SELECT MAX(id) FROM collection_runs)'
 
-    cursor.execute("""
-        SELECT
+    # Find ADP active employees matched to M365 users (by UPN or alias)
+    # where the M365 account is inactive
+    cursor.execute(f"""
+        SELECT DISTINCT
             adp.work_email,
             adp.legal_name,
             adp.job_title,
@@ -224,11 +241,29 @@ def find_adp_users_inactive_in_m365(
             adp.location,
             ua.last_sign_in_date
         FROM adp_employees adp
-        LEFT JOIN user_activity ua
-            ON LOWER(adp.work_email) = LOWER(ua.user_principal_name)
+        LEFT JOIN (
+            -- Match by UPN
+            SELECT user_principal_name, last_sign_in_date
+            FROM user_activity
+            WHERE collection_run_id = {run_id}
+        ) ua ON LOWER(adp.work_email) = LOWER(ua.user_principal_name)
+        LEFT JOIN (
+            -- Match by any email alias
+            SELECT uea.email_address, ua2.last_sign_in_date
+            FROM user_email_aliases uea
+            INNER JOIN user_activity ua2
+                ON uea.user_principal_name = ua2.user_principal_name
+                AND uea.collection_run_id = ua2.collection_run_id
+            WHERE uea.collection_run_id = {run_id}
+        ) ua_alias ON LOWER(adp.work_email) = LOWER(ua_alias.email_address)
         WHERE adp.position_status = 'Active'
-            AND (ua.last_sign_in_date IS NULL
-                 OR ua.last_sign_in_date < ?)
+            -- User has an M365 account (matched by UPN or alias)
+            AND (ua.last_sign_in_date IS NOT NULL OR ua_alias.last_sign_in_date IS NOT NULL)
+            -- But that account is inactive
+            AND (
+                COALESCE(ua.last_sign_in_date, ua_alias.last_sign_in_date) IS NULL
+                OR COALESCE(ua.last_sign_in_date, ua_alias.last_sign_in_date) < ?
+            )
         ORDER BY adp.legal_name
     """, (cutoff_date,))
 
@@ -251,6 +286,8 @@ def find_terminated_with_licenses(db_path: str) -> list[dict]:
     """
     Find terminated ADP employees with active M365 licenses.
 
+    Matches ADP work_email against user_principal_name AND all email aliases.
+
     Args:
         db_path: Path to SQLite database
 
@@ -260,18 +297,36 @@ def find_terminated_with_licenses(db_path: str) -> list[dict]:
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT
+    run_id = '(SELECT MAX(id) FROM collection_runs)'
+
+    # Find terminated employees who still have M365 accounts
+    cursor.execute(f"""
+        SELECT DISTINCT
             adp.work_email,
             adp.legal_name,
             adp.job_title,
             adp.position_status,
             adp.location,
-            ua.last_sign_in_date
+            COALESCE(ua.last_sign_in_date, ua_alias.last_sign_in_date) as last_sign_in_date
         FROM adp_employees adp
-        INNER JOIN user_activity ua
-            ON LOWER(adp.work_email) = LOWER(ua.user_principal_name)
+        LEFT JOIN (
+            -- Match by UPN
+            SELECT user_principal_name, last_sign_in_date
+            FROM user_activity
+            WHERE collection_run_id = {run_id}
+        ) ua ON LOWER(adp.work_email) = LOWER(ua.user_principal_name)
+        LEFT JOIN (
+            -- Match by any email alias
+            SELECT uea.email_address, ua2.last_sign_in_date
+            FROM user_email_aliases uea
+            INNER JOIN user_activity ua2
+                ON uea.user_principal_name = ua2.user_principal_name
+                AND uea.collection_run_id = ua2.collection_run_id
+            WHERE uea.collection_run_id = {run_id}
+        ) ua_alias ON LOWER(adp.work_email) = LOWER(ua_alias.email_address)
         WHERE adp.position_status != 'Active'
+            -- Has M365 account (matched by UPN or alias)
+            AND (ua.user_principal_name IS NOT NULL OR ua_alias.email_address IS NOT NULL)
         ORDER BY adp.legal_name
     """)
 

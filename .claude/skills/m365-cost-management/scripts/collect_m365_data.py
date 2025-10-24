@@ -171,6 +171,30 @@ def create_database_schema(db_path: str) -> None:
         ON collection_progress(collection_run_id, timestamp DESC)
     """)
 
+    # User email aliases table
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_email_aliases (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            collection_run_id INTEGER NOT NULL,
+            user_principal_name TEXT NOT NULL,
+            email_address TEXT NOT NULL,
+            email_type TEXT NOT NULL CHECK(email_type IN ('mail', 'proxyAddress', 'otherMail')),
+            FOREIGN KEY (collection_run_id) REFERENCES collection_runs(id),
+            UNIQUE(collection_run_id, user_principal_name, email_address)
+        )
+    """)
+
+    # Index for email alias lookups
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_email_aliases_address
+        ON user_email_aliases(LOWER(email_address))
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_email_aliases_run
+        ON user_email_aliases(collection_run_id)
+    """)
+
     # ADP employees table (for HR cross-reference)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS adp_employees (
@@ -497,6 +521,49 @@ def store_user_activity_batch(
                 last_sign_in_date
             ) VALUES (?, ?, ?)
         """, (run_id, upn, last_sign_in))
+
+        # Store email aliases
+        # Add primary mail address if present
+        mail = user.get('mail')
+        if mail:
+            cursor.execute("""
+                INSERT OR IGNORE INTO user_email_aliases (
+                    collection_run_id,
+                    user_principal_name,
+                    email_address,
+                    email_type
+                ) VALUES (?, ?, ?, ?)
+            """, (run_id, upn, mail.lower(), 'mail'))
+
+        # Add proxy addresses (all SMTP addresses)
+        proxy_addresses = user.get('proxyAddresses', [])
+        if proxy_addresses:
+            for proxy in proxy_addresses:
+                # Extract email from format like "SMTP:user@domain.com" or "smtp:user@domain.com"
+                if proxy and ':' in proxy:
+                    email = proxy.split(':', 1)[1].lower()
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO user_email_aliases (
+                            collection_run_id,
+                            user_principal_name,
+                            email_address,
+                            email_type
+                        ) VALUES (?, ?, ?, ?)
+                    """, (run_id, upn, email, 'proxyAddress'))
+
+        # Add other mails
+        other_mails = user.get('otherMails', [])
+        if other_mails:
+            for email in other_mails:
+                if email:
+                    cursor.execute("""
+                        INSERT OR IGNORE INTO user_email_aliases (
+                            collection_run_id,
+                            user_principal_name,
+                            email_address,
+                            email_type
+                        ) VALUES (?, ?, ?, ?)
+                    """, (run_id, upn, email.lower(), 'otherMail'))
 
         last_user = upn
 
@@ -835,7 +902,7 @@ def fetch_users_with_activity(access_token: str) -> list[dict[str, Any]]:
     all_users = []
     url = 'https://graph.microsoft.com/v1.0/users'
     params = {
-        '$select': 'userPrincipalName,signInActivity',
+        '$select': 'userPrincipalName,mail,proxyAddresses,otherMails,signInActivity',
         '$top': 999
     }
 
@@ -883,7 +950,7 @@ def fetch_and_store_users_batch(
     users_processed = 0
     url = 'https://graph.microsoft.com/v1.0/users'
     params = {
-        '$select': 'userPrincipalName,signInActivity',
+        '$select': 'userPrincipalName,mail,proxyAddresses,otherMails,signInActivity',
         '$top': 999
     }
 
