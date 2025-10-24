@@ -15,12 +15,12 @@ Comprehensive toolkit for analyzing M365 license costs and identifying savings o
 
 1. **Collect data** from M365 tenant:
    ```bash
-   uv run python tools/collect_m365_data.py
+   uv run python scripts/collect_m365_data.py
    ```
 
 2. **Generate dashboard**:
    ```bash
-   uv run python tools/generate_dashboard.py
+   uv run python scripts/generate_dashboard.py
    ```
 
 3. **Open dashboard** in browser:
