@@ -70,23 +70,30 @@ Find your tenant ID and client ID in the Azure AD app overview page.
 
 ## Quick Start
 
-### 1. Collect Data (TODO: Implementation Needed)
+### 1. Collect Data
 
 ```bash
-uv run python tools/collect_m365_data.py
+uv run python scripts/collect_m365_data.py
 ```
 
 This will:
 - Authenticate to Microsoft Graph API
 - Fetch all subscribed SKUs and license assignments
-- Collect user sign-in activity
-- Load price lookup data
+- Collect user sign-in activity in batches (configurable)
+- Create checkpoints for resumability
+- Handle rate limiting automatically
 - Store everything in SQLite database
+
+**For large tenants (1000+ users):**
+- Collection runs in batches (default: 100 users per batch)
+- Creates checkpoints after each batch
+- Can resume if interrupted
+- Handles rate limiting with exponential backoff
 
 ### 2. Generate Dashboard
 
 ```bash
-uv run python tools/generate_dashboard.py
+uv run python scripts/generate_dashboard.py
 ```
 
 Creates `m365_dashboard.html` with:
@@ -94,6 +101,7 @@ Creates `m365_dashboard.html` with:
 - Inactive Users: Users with 90+ days no sign-in
 - License Utilization: Unassigned licenses
 - Actions: Prioritized recommendations
+- Warning if data is incomplete
 
 ### 3. Review Dashboard
 
@@ -117,12 +125,74 @@ All settings use environment variables (or `.env` file):
 | `CLIENT_ID` | (required) | App registration client ID |
 | `CLIENT_SECRET` | (required) | App client secret |
 | `DATABASE_PATH` | `./data/m365_costs.db` | SQLite database location |
+| `BATCH_SIZE` | `100` | Users per batch (50-200 recommended) |
 | `DASHBOARD_OUTPUT` | `./m365_dashboard.html` | Dashboard output path |
 | `INACTIVE_DAYS` | `90` | Days threshold for inactive users |
 
+### Batch Size Guidelines
+
+- **Small tenants (<1K users)**: Use default 100
+- **Medium tenants (1-10K users)**: 100-150 for balance
+- **Large tenants (10K+ users)**: 150-200 for speed
+- **Rate limit issues**: Reduce to 50-75
+
+Smaller batches = more checkpoints, slower but more resilient
+Larger batches = fewer checkpoints, faster but less frequent saves
+
+## Incremental Collection & Recovery
+
+### How It Works
+
+The data collection process is designed for resilience with large tenants:
+
+1. **Batch Processing**: Users are processed in batches (default 100)
+2. **Checkpoints**: After each batch, progress is saved to database
+3. **Rate Limiting**: Automatically detects and handles 429 responses
+4. **Progress Tracking**: Real-time status updates throughout collection
+
+### Recovery from Interruptions
+
+If collection is interrupted (Ctrl+C, network issue, rate limit), simply re-run:
+
+```bash
+uv run python scripts/collect_m365_data.py
+```
+
+The script will:
+- Detect the incomplete run
+- Resume from the last checkpoint
+- Continue where it left off
+- Complete the collection
+
+### Monitoring Progress
+
+Check collection status in the database:
+
+```sql
+-- View latest collection run
+SELECT * FROM collection_runs ORDER BY id DESC LIMIT 1;
+
+-- View progress checkpoints
+SELECT * FROM collection_checkpoints
+WHERE collection_run_id = (SELECT MAX(id) FROM collection_runs);
+
+-- View retry attempts (rate limiting)
+SELECT * FROM retry_log
+WHERE collection_run_id = (SELECT MAX(id) FROM collection_runs);
+```
+
+### Handling Rate Limits
+
+If you hit rate limits frequently:
+
+1. **Reduce batch size**: Set `BATCH_SIZE=50` in .env
+2. **Smaller batches** = more frequent checkpoints + slower API calls
+3. **Script logs all retries** for monitoring patterns
+4. **Automatic exponential backoff** handles transient limits
+
 ## Tools
 
-### collect_m365_data.py (TODO: Implementation Needed)
+### collect_m365_data.py
 
 Collects data from Microsoft Graph API.
 
