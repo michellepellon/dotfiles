@@ -171,6 +171,35 @@ def create_database_schema(db_path: str) -> None:
         ON collection_progress(collection_run_id, timestamp DESC)
     """)
 
+    # ADP employees table (for HR cross-reference)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS adp_employees (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            import_timestamp TEXT NOT NULL,
+            legal_name TEXT,
+            preferred_first_name TEXT,
+            preferred_last_name TEXT,
+            position_id TEXT,
+            hire_date TEXT,
+            job_title TEXT,
+            position_start_date TEXT,
+            position_status TEXT,
+            location TEXT,
+            work_email TEXT NOT NULL
+        )
+    """)
+
+    # Index for email lookups
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_adp_email
+        ON adp_employees(LOWER(work_email))
+    """)
+
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_adp_status
+        ON adp_employees(position_status)
+    """)
+
     conn.commit()
     conn.close()
 

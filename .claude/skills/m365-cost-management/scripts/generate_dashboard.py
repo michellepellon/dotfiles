@@ -334,6 +334,29 @@ def get_dashboard_data(db_path: str, inactive_days: int = 90) -> Dict:
     """.format(inactive_days), (run_id,))
     inactive_users = [dict(row) for row in cursor.fetchall()]
 
+    # Check if ADP data is available
+    cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='adp_employees'")
+    has_adp_data = cursor.fetchone() is not None
+
+    adp_summary = None
+    orphaned_licenses = []
+    terminated_with_licenses = []
+    inactive_active_employees = []
+
+    if has_adp_data:
+        # Import ADP cross-reference functions
+        from scripts.import_adp_data import (
+            generate_cross_reference_summary,
+            find_m365_users_not_in_adp,
+            find_terminated_with_licenses,
+            find_adp_users_inactive_in_m365
+        )
+
+        adp_summary = generate_cross_reference_summary(db_path)
+        orphaned_licenses = find_m365_users_not_in_adp(db_path)
+        terminated_with_licenses = find_terminated_with_licenses(db_path)
+        inactive_active_employees = find_adp_users_inactive_in_m365(db_path, inactive_days)
+
     conn.close()
 
     return {
@@ -347,7 +370,12 @@ def get_dashboard_data(db_path: str, inactive_days: int = 90) -> Dict:
         'checkpoints': checkpoints,
         'retry_info': retry_info,
         'pricing': pricing,
-        'is_complete': is_complete
+        'is_complete': is_complete,
+        'has_adp_data': has_adp_data,
+        'adp_summary': adp_summary,
+        'orphaned_licenses': orphaned_licenses,
+        'terminated_with_licenses': terminated_with_licenses,
+        'inactive_active_employees': inactive_active_employees
     }
 
 
@@ -685,6 +713,7 @@ def generate_html(data: Dict, output_path: str):
             <button class="tab" onclick="showPage('actions')">Actions</button>
             <button class="tab" onclick="showPage('pricing')">Pricing</button>
             <button class="tab" onclick="showPage('collection')">Collection Info</button>
+            {"<button class=\"tab\" onclick=\"showPage('adp')\">ADP Cross-Reference</button>" if data['has_adp_data'] else ""}
         </div>
 
         <div id="overview" class="page active">
@@ -709,6 +738,10 @@ def generate_html(data: Dict, output_path: str):
 
         <div id="collection" class="page">
             <!-- Collection info page content will be inserted by JavaScript -->
+        </div>
+
+        <div id="adp" class="page">
+            <!-- ADP cross-reference page content will be inserted by JavaScript -->
         </div>
     </div>
 
@@ -1211,6 +1244,195 @@ def generate_html(data: Dict, output_path: str):
             document.getElementById('collection').innerHTML = html;
         }}
 
+        // Render ADP cross-reference page
+        function renderADP() {{
+            if (!data.has_adp_data) {{
+                document.getElementById('adp').innerHTML = `
+                    <div class="status-banner warning">
+                        <p><strong>No ADP data available</strong></p>
+                        <p>Run <code>uv run python scripts/import_adp_data.py &lt;adp_export.xlsx&gt;</code> to import employee data.</p>
+                    </div>
+                `;
+                return;
+            }}
+
+            const summary = data.adp_summary;
+            let html = `
+                <h3>ADP Cross-Reference Summary</h3>
+                <p style="color: #4C566A; margin-bottom: 2rem;">
+                    Compare M365 licenses with ADP employee data to identify orphaned licenses and inactive users
+                </p>
+
+                <div class="meta-grid">
+                    <div class="meta-card">
+                        <div class="meta-label">Active Employees (ADP)</div>
+                        <div class="meta-value">${{summary.adp_active_count.toLocaleString()}}</div>
+                    </div>
+                    <div class="meta-card">
+                        <div class="meta-label">Terminated (ADP)</div>
+                        <div class="meta-value">${{summary.adp_terminated_count.toLocaleString()}}</div>
+                    </div>
+                    <div class="meta-card">
+                        <div class="meta-label">Total M365 Users</div>
+                        <div class="meta-value">${{summary.m365_users_count.toLocaleString()}}</div>
+                    </div>
+                </div>
+
+                <h3 style="margin-top: 3rem;">Issues Found</h3>
+                <div class="meta-grid">
+                    <div class="meta-card">
+                        <div class="meta-label">Orphaned Licenses</div>
+                        <div class="meta-value" style="color: #BF616A;">${{summary.orphaned_licenses_count.toLocaleString()}}</div>
+                        <p style="color: #4C566A; font-size: 0.9rem; margin-top: 0.5rem;">
+                            M365 users not in ADP
+                        </p>
+                    </div>
+                    <div class="meta-card">
+                        <div class="meta-label">Terminated with Licenses</div>
+                        <div class="meta-value" style="color: #BF616A;">${{summary.terminated_with_licenses_count.toLocaleString()}}</div>
+                        <p style="color: #4C566A; font-size: 0.9rem; margin-top: 0.5rem;">
+                            Ex-employees with active M365
+                        </p>
+                    </div>
+                    <div class="meta-card">
+                        <div class="meta-label">Inactive Active Employees</div>
+                        <div class="meta-value" style="color: #EBCB8B;">${{summary.inactive_users_count.toLocaleString()}}</div>
+                        <p style="color: #4C566A; font-size: 0.9rem; margin-top: 0.5rem;">
+                            No M365 activity for ${{data.inactive_days}}+ days
+                        </p>
+                    </div>
+                </div>
+            `;
+
+            // Orphaned licenses table
+            if (data.orphaned_licenses && data.orphaned_licenses.length > 0) {{
+                html += `
+                    <h3 style="margin-top: 3rem;">Orphaned Licenses (${{data.orphaned_licenses.length.toLocaleString()}})</h3>
+                    <p style="color: #4C566A; margin-bottom: 1rem;">
+                        M365 users not found in ADP employee data. These may be terminated employees,
+                        external users, or service accounts.
+                    </p>
+                    <button class="download-btn" onclick="downloadOrphanedLicenses()">
+                        Download CSV
+                    </button>
+                    <table style="margin-top: 1rem;">
+                        <thead>
+                            <tr>
+                                <th>User Principal Name</th>
+                                <th>Last Sign-In</th>
+                                <th>Days Since Sign-In</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${{data.orphaned_licenses.slice(0, 100).map(user => {{
+                                const lastSignIn = user.last_sign_in_date || 'Never';
+                                const daysSince = user.last_sign_in_date
+                                    ? Math.floor((new Date() - new Date(user.last_sign_in_date)) / (1000 * 60 * 60 * 24))
+                                    : 'N/A';
+                                return `
+                                    <tr>
+                                        <td style="font-family: 'Monaco', 'Courier New', monospace; font-size: 0.9em;">
+                                            ${{user.user_principal_name}}
+                                        </td>
+                                        <td>${{lastSignIn}}</td>
+                                        <td>${{daysSince}}</td>
+                                    </tr>
+                                `;
+                            }}).join('')}}
+                        </tbody>
+                    </table>
+                    ${{data.orphaned_licenses.length > 100 ? `
+                        <p style="color: #4C566A; margin-top: 1rem;">
+                            Showing first 100 of ${{data.orphaned_licenses.length.toLocaleString()}} orphaned licenses.
+                            Download CSV for complete list.
+                        </p>
+                    ` : ''}}
+                `;
+            }}
+
+            // Terminated with licenses table
+            if (data.terminated_with_licenses && data.terminated_with_licenses.length > 0) {{
+                html += `
+                    <h3 style="margin-top: 3rem;">Terminated Employees with M365 Licenses (${{data.terminated_with_licenses.length}})</h3>
+                    <p style="color: #4C566A; margin-bottom: 1rem;">
+                        Employees marked as terminated in ADP but still have active M365 accounts.
+                    </p>
+                    <button class="download-btn" onclick="downloadTerminatedWithLicenses()">
+                        Download CSV
+                    </button>
+                    <table style="margin-top: 1rem;">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Job Title</th>
+                                <th>Status</th>
+                                <th>Last M365 Sign-In</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${{data.terminated_with_licenses.map(emp => `
+                                <tr>
+                                    <td>${{emp.legal_name}}</td>
+                                    <td style="font-family: 'Monaco', 'Courier New', monospace; font-size: 0.9em;">
+                                        ${{emp.work_email}}
+                                    </td>
+                                    <td>${{emp.job_title || 'N/A'}}</td>
+                                    <td>${{emp.position_status}}</td>
+                                    <td>${{emp.last_sign_in_date || 'Never'}}</td>
+                                </tr>
+                            `).join('')}}
+                        </tbody>
+                    </table>
+                `;
+            }}
+
+            // Inactive active employees table
+            if (data.inactive_active_employees && data.inactive_active_employees.length > 0) {{
+                html += `
+                    <h3 style="margin-top: 3rem;">Active Employees with No Recent M365 Activity (${{data.inactive_active_employees.length}})</h3>
+                    <p style="color: #4C566A; margin-bottom: 1rem;">
+                        Employees marked as Active in ADP but no M365 sign-in for ${{data.inactive_days}}+ days.
+                    </p>
+                    <button class="download-btn" onclick="downloadInactiveActiveEmployees()">
+                        Download CSV
+                    </button>
+                    <table style="margin-top: 1rem;">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Job Title</th>
+                                <th>Location</th>
+                                <th>Last M365 Sign-In</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${{data.inactive_active_employees.slice(0, 100).map(emp => `
+                                <tr>
+                                    <td>${{emp.legal_name}}</td>
+                                    <td style="font-family: 'Monaco', 'Courier New', monospace; font-size: 0.9em;">
+                                        ${{emp.work_email}}
+                                    </td>
+                                    <td>${{emp.job_title || 'N/A'}}</td>
+                                    <td>${{emp.location || 'N/A'}}</td>
+                                    <td>${{emp.last_sign_in_date || 'Never'}}</td>
+                                </tr>
+                            `).join('')}}
+                        </tbody>
+                    </table>
+                    ${{data.inactive_active_employees.length > 100 ? `
+                        <p style="color: #4C566A; margin-top: 1rem;">
+                            Showing first 100 of ${{data.inactive_active_employees.length}} inactive employees.
+                            Download CSV for complete list.
+                        </p>
+                    ` : ''}}
+                `;
+            }}
+
+            document.getElementById('adp').innerHTML = html;
+        }}
+
         // Download inactive users as CSV
         function downloadInactiveUsers() {{
             const csv = [
@@ -1444,6 +1666,71 @@ def generate_html(data: Dict, output_path: str):
             URL.revokeObjectURL(url);
         }}
 
+        // Download orphaned licenses as CSV
+        function downloadOrphanedLicenses() {{
+            const csv = [
+                ['User Principal Name', 'Last Sign-In', 'Days Since Sign-In'],
+                ...data.orphaned_licenses.map(user => {{
+                    const lastSignIn = user.last_sign_in_date || 'Never';
+                    const daysSince = user.last_sign_in_date
+                        ? Math.floor((new Date() - new Date(user.last_sign_in_date)) / (1000 * 60 * 60 * 24))
+                        : 'N/A';
+                    return [user.user_principal_name, lastSignIn, daysSince];
+                }})
+            ].map(row => row.join(',')).join('\\n');
+
+            const blob = new Blob([csv], {{ type: 'text/csv' }});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'orphaned_licenses.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }}
+
+        // Download terminated employees with licenses as CSV
+        function downloadTerminatedWithLicenses() {{
+            const csv = [
+                ['Name', 'Email', 'Job Title', 'Status', 'Last M365 Sign-In'],
+                ...data.terminated_with_licenses.map(emp => [
+                    emp.legal_name,
+                    emp.work_email,
+                    emp.job_title || 'N/A',
+                    emp.position_status,
+                    emp.last_sign_in_date || 'Never'
+                ])
+            ].map(row => row.join(',')).join('\\n');
+
+            const blob = new Blob([csv], {{ type: 'text/csv' }});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'terminated_with_licenses.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }}
+
+        // Download inactive active employees as CSV
+        function downloadInactiveActiveEmployees() {{
+            const csv = [
+                ['Name', 'Email', 'Job Title', 'Location', 'Last M365 Sign-In'],
+                ...data.inactive_active_employees.map(emp => [
+                    emp.legal_name,
+                    emp.work_email,
+                    emp.job_title || 'N/A',
+                    emp.location || 'N/A',
+                    emp.last_sign_in_date || 'Never'
+                ])
+            ].map(row => row.join(',')).join('\\n');
+
+            const blob = new Blob([csv], {{ type: 'text/csv' }});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.download = 'inactive_active_employees.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+        }}
+
         // Initialize dashboard
         renderStatusBanner();
         renderOverview();
@@ -1452,6 +1739,9 @@ def generate_html(data: Dict, output_path: str):
         renderActions();
         renderPricing();
         renderCollection();
+        if (data.has_adp_data) {{
+            renderADP();
+        }}
     </script>
 </body>
 </html>

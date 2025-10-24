@@ -8,6 +8,7 @@ Analyze M365 license costs, identify savings opportunities, and generate actiona
 - **Inactive User Detection**: Find users with 90+ days no sign-in
 - **Utilization Tracking**: Identify unassigned licenses
 - **Cost Projections**: Calculate monthly and annual savings potential
+- **ADP Integration**: Cross-reference M365 users with HR data to identify orphaned licenses
 - **Interactive Dashboard**: Beautiful HTML dashboard with visualizations
 - **CSV Export**: Download user lists for review
 - **Recommendations**: Prioritized action items with dollar impact
@@ -107,7 +108,35 @@ This script:
 
 **Note**: Only needed once after initial data collection or when new SKUs appear.
 
-### 3. Generate Dashboard
+### 3. Import ADP Data (Optional but Recommended)
+
+Cross-reference M365 licenses with HR employee data to identify orphaned licenses:
+
+```bash
+uv run python scripts/import_adp_data.py "/path/to/adp_export.xlsx"
+```
+
+This will:
+- Import employee data from ADP Excel export
+- Cross-reference with M365 user data
+- Identify orphaned licenses (M365 users not in ADP)
+- Find terminated employees with active M365 licenses
+- Detect active employees inactive for 90+ days
+
+**Expected ADP Excel columns:**
+- Work Contact: Work Email (required)
+- Legal Name
+- Position Status
+- Job Title Description
+- Location Description
+- Hire Date
+
+**Analysis results shown:**
+- Orphaned licenses: M365 users not found in ADP
+- Terminated with licenses: Ex-employees still with M365 access
+- Inactive active employees: Active employees with no M365 activity
+
+### 4. Generate Dashboard
 
 ```bash
 uv run python scripts/generate_dashboard.py
@@ -121,20 +150,22 @@ Creates `m365_dashboard.html` with:
 - **Actions**: Prioritized recommendations
 - **Pricing**: Editable SKU pricing with SQL export
 - **Collection Info**: Comprehensive collection metadata, checkpoints, and retry logs
+- **ADP Cross-Reference**: Orphaned licenses and HR data comparison (if ADP data imported)
 
-### 4. Review Dashboard
+### 5. Review Dashboard
 
 ```bash
 open m365_dashboard.html
 ```
 
-Navigate through six tabs:
+Navigate through seven tabs (ADP tab appears only if ADP data imported):
 - **Overview**: Hero metric showing potential cost reduction %
 - **Inactive Users**: Download CSV of users to review
 - **Utilization**: See which licenses are unused
 - **Actions**: Specific next steps with savings impact
 - **Pricing**: Edit SKU prices, export SQL updates, download pricing CSV
 - **Collection Info**: View collection status, progress, checkpoints, and rate limiting details
+- **ADP Cross-Reference**: Orphaned licenses, terminated employees with licenses, inactive active employees
 
 ## Configuration
 
@@ -241,6 +272,34 @@ Syncs price_lookup table with actual SKU IDs and sets correct monthly costs.
 
 **Unknown SKUs**: Set to $0.00 (update manually via dashboard Pricing tab)
 
+### import_adp_data.py
+
+Imports ADP employee data and cross-references with M365 licenses.
+
+**Purpose**:
+- Import employee data from ADP Excel export
+- Cross-reference with M365 user data
+- Identify orphaned licenses (M365 users not in ADP)
+- Find terminated employees with active M365 licenses
+- Detect active employees with no M365 activity
+
+**Expected Excel columns**:
+- Work Contact: Work Email (required for matching)
+- Legal Name
+- Position Status (Active/Terminated)
+- Job Title Description
+- Location Description
+- Hire Date
+
+**Matching logic**:
+- Compares ADP work_email with M365 user_principal_name (case-insensitive)
+- TODO: Enhance to check M365 email aliases/proxyAddresses
+
+**Output**:
+- Populates `adp_employees` table in database
+- Displays cross-reference summary in console
+- Shows in ADP Cross-Reference tab in dashboard
+
 ### generate_dashboard.py
 
 Creates static HTML dashboard from database.
@@ -329,6 +388,20 @@ Creates static HTML dashboard from database.
 - `user_principal_name` (TEXT PRIMARY KEY)
 - `last_sign_in_date` (TEXT)
 
+### adp_employees
+- `id` (INTEGER PRIMARY KEY AUTOINCREMENT)
+- `import_timestamp` (TEXT)
+- `legal_name` (TEXT)
+- `preferred_first_name` (TEXT)
+- `preferred_last_name` (TEXT)
+- `position_id` (TEXT)
+- `hire_date` (TEXT)
+- `job_title` (TEXT)
+- `position_start_date` (TEXT)
+- `position_status` (TEXT: 'Active', 'Terminated', etc.)
+- `location` (TEXT)
+- `work_email` (TEXT NOT NULL)
+
 ## Dependencies
 
 | Library | Purpose |
@@ -336,6 +409,8 @@ Creates static HTML dashboard from database.
 | `msal` | Microsoft Authentication Library (Graph API auth) |
 | `requests` | HTTP client for Graph API calls |
 | `python-dotenv` | Load environment variables from .env |
+| `openpyxl` | Read ADP Excel exports |
+| `pdfplumber` | Extract text from invoice PDFs |
 | `sqlite3` | Database (built-in to Python) |
 
 ## Common Tasks
