@@ -103,6 +103,7 @@ Creates `m365_dashboard.html` with:
 - **Inactive Users**: Users with 90+ days no sign-in
 - **License Utilization**: Unassigned licenses
 - **Actions**: Prioritized recommendations
+- **Pricing**: Editable SKU pricing with SQL export
 - **Collection Info**: Comprehensive collection metadata, checkpoints, and retry logs
 
 ### 3. Review Dashboard
@@ -111,11 +112,12 @@ Creates `m365_dashboard.html` with:
 open m365_dashboard.html
 ```
 
-Navigate through five tabs:
+Navigate through six tabs:
 - **Overview**: Hero metric showing potential cost reduction %
 - **Inactive Users**: Download CSV of users to review
 - **Utilization**: See which licenses are unused
 - **Actions**: Specific next steps with savings impact
+- **Pricing**: Edit SKU prices, export SQL updates, download pricing CSV
 - **Collection Info**: View collection status, progress, checkpoints, and rate limiting details
 
 ## Configuration
@@ -215,6 +217,13 @@ Creates static HTML dashboard from database.
 
 **Features**:
 - **Status Banner**: Displays collection status (complete/running/failed) with color-coded warnings
+- **Pricing Tab**: Editable license pricing management
+  - View all SKUs with current monthly costs
+  - In-browser editing of prices
+  - Real-time change tracking with summary
+  - Export SQL UPDATE statements for database
+  - Download pricing as CSV
+  - Reset/discard changes before export
 - **Collection Info Tab**: Shows comprehensive metadata including:
   - Collection run ID, timestamp, and status
   - Total users and licenses collected
@@ -223,7 +232,7 @@ Creates static HTML dashboard from database.
   - Rate limiting and retry attempts
   - Error messages if collection failed
 - **Cost Analysis**: Overview, inactive users, and utilization tabs with interactive charts
-- **CSV Export**: Download inactive user lists for review
+- **CSV Export**: Download inactive user lists and pricing data for review
 
 ## Database Schema
 
