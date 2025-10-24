@@ -831,16 +831,17 @@ def fetch_and_store_users_batch(
     batch_size: int = 100
 ) -> int:
     """
-    Fetch users with activity and store in batches with checkpoints.
+    Fetch users with activity and store incrementally with checkpoints.
 
-    Handles pagination, rate limiting, and creates checkpoints after
-    each batch for resumability.
+    Writes users to database immediately as pages are fetched (not
+    accumulated in memory). Creates checkpoints after each page for
+    full resumability.
 
     Args:
         access_token: Graph API access token
         db_path: Database path
         run_id: Collection run ID
-        batch_size: Users per batch
+        batch_size: Users per batch (unused, kept for API compatibility)
 
     Returns:
         Total number of users processed
@@ -850,20 +851,21 @@ def fetch_and_store_users_batch(
         'Content-Type': 'application/json'
     }
 
-    all_users = []
+    users_processed = 0
     url = 'https://graph.microsoft.com/v1.0/users'
     params = {
         '$select': 'userPrincipalName,signInActivity',
         '$top': 999
     }
 
-    # First, fetch all users with pagination and rate limiting
-    print("Fetching user list from Graph API...")
+    print("Fetching and storing users incrementally from Graph API...")
+    print("(Writing to database as we fetch - no memory accumulation)")
     max_retries = 5
 
     while url:
         success = False
 
+        # Fetch page with retry logic
         for attempt in range(max_retries):
             response = requests.get(url, headers=headers, params=params)
 
@@ -890,35 +892,48 @@ def fetch_and_store_users_batch(
         if not success:
             raise Exception(f"Failed to fetch users after {max_retries} attempts")
 
+        # Got page successfully
         data = response.json()
-        all_users.extend(data['value'])
+        page_users = data['value']
+
+        # Write this page to database immediately
+        store_user_activity_batch(
+            db_path,
+            run_id,
+            page_users,
+            batch_start=users_processed,
+            total_count=-1  # Unknown total during fetch
+        )
+
+        users_processed += len(page_users)
+        print(f"Fetched and stored {users_processed} users so far...")
 
         # Get next page URL
         url = data.get('@odata.nextLink')
         params = None  # nextLink includes all params
 
-        print(f"Fetched {len(all_users)} users so far...")
+    # Fetch complete - now we know total
+    print(f"Fetch complete. Total users: {users_processed}")
 
-    total_users = len(all_users)
-    print(f"Found {total_users} total users")
+    # Update final checkpoint with correct total
+    create_checkpoint(
+        db_path,
+        run_id,
+        'user_activity',
+        users_processed,
+        users_processed,  # Now we know total
+        {'last_user': 'fetch_complete'}
+    )
+    update_progress(
+        db_path,
+        run_id,
+        'user_activity',
+        users_processed,
+        users_processed,
+        f'Completed: {users_processed} users'
+    )
 
-    # Process users in batches
-    print(f"Processing users in batches of {batch_size}...")
-    for i in range(0, total_users, batch_size):
-        batch = all_users[i:i + batch_size]
-        batch_num = (i // batch_size) + 1
-        total_batches = (total_users + batch_size - 1) // batch_size
-
-        print(f"Processing batch {batch_num}/{total_batches} ({len(batch)} users)...")
-        store_user_activity_batch(
-            db_path,
-            run_id,
-            batch,
-            batch_start=i,
-            total_count=total_users
-        )
-
-    return total_users
+    return users_processed
 
 
 def fetch_user_licenses(

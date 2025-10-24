@@ -4,6 +4,9 @@
 # Data directory
 data/
 
+# Generated dashboard
+m365_dashboard.html
+
 # Python cache
 __pycache__/
 *.pyc

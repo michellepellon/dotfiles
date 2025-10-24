@@ -79,14 +79,15 @@ uv run python scripts/collect_m365_data.py
 This will:
 - Authenticate to Microsoft Graph API
 - Fetch all subscribed SKUs and license assignments
-- Collect user sign-in activity in batches (configurable)
+- Collect user sign-in activity incrementally (written to DB during fetch)
 - Create checkpoints for resumability
 - Handle rate limiting automatically
 - Store everything in SQLite database
 
 **For large tenants (1000+ users):**
-- Collection runs in batches (default: 100 users per batch)
-- Creates checkpoints after each batch
+- Users are written to database immediately as fetched (no memory accumulation)
+- Creates checkpoints after each page (Graph API page size: 999 users)
+- Constant memory usage regardless of tenant size
 - Can resume if interrupted
 - Handles rate limiting with exponential backoff
 
@@ -125,19 +126,10 @@ All settings use environment variables (or `.env` file):
 | `CLIENT_ID` | (required) | App registration client ID |
 | `CLIENT_SECRET` | (required) | App client secret |
 | `DATABASE_PATH` | `./data/m365_costs.db` | SQLite database location |
-| `BATCH_SIZE` | `100` | Users per batch (50-200 recommended) |
 | `DASHBOARD_OUTPUT` | `./m365_dashboard.html` | Dashboard output path |
 | `INACTIVE_DAYS` | `90` | Days threshold for inactive users |
 
-### Batch Size Guidelines
-
-- **Small tenants (<1K users)**: Use default 100
-- **Medium tenants (1-10K users)**: 100-150 for balance
-- **Large tenants (10K+ users)**: 150-200 for speed
-- **Rate limit issues**: Reduce to 50-75
-
-Smaller batches = more checkpoints, slower but more resilient
-Larger batches = fewer checkpoints, faster but less frequent saves
+**Note**: `BATCH_SIZE` is no longer used. The script now uses Graph API's maximum page size (999 users) and writes to database incrementally during fetch with constant memory usage.
 
 ## Incremental Collection & Recovery
 
@@ -145,10 +137,11 @@ Larger batches = fewer checkpoints, faster but less frequent saves
 
 The data collection process is designed for resilience with large tenants:
 
-1. **Batch Processing**: Users are processed in batches (default 100)
-2. **Checkpoints**: After each batch, progress is saved to database
-3. **Rate Limiting**: Automatically detects and handles 429 responses
-4. **Progress Tracking**: Real-time status updates throughout collection
+1. **Incremental Writes**: Users are written to database immediately as pages are fetched
+2. **Constant Memory**: No accumulation in memory - processes Graph API pages (999 users) one at a time
+3. **Checkpoints**: After each page, progress is saved to database for resumability
+4. **Rate Limiting**: Automatically detects and handles 429 responses with exponential backoff
+5. **Progress Tracking**: Real-time status updates throughout collection
 
 ### Recovery from Interruptions
 
@@ -185,10 +178,10 @@ WHERE collection_run_id = (SELECT MAX(id) FROM collection_runs);
 
 If you hit rate limits frequently:
 
-1. **Reduce batch size**: Set `BATCH_SIZE=50` in .env
-2. **Smaller batches** = more frequent checkpoints + slower API calls
-3. **Script logs all retries** for monitoring patterns
-4. **Automatic exponential backoff** handles transient limits
+1. **Automatic Retry**: Script automatically retries with exponential backoff (1s, 2s, 4s, 8s, 16s)
+2. **Respects Retry-After**: Uses Retry-After header from Graph API when available
+3. **All Retries Logged**: Check retry_log table to monitor rate limiting patterns
+4. **Checkpoints Preserve Progress**: Resume from last successful page after interruption
 
 ## Tools
 
