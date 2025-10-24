@@ -91,7 +91,23 @@ This will:
 - Can resume if interrupted
 - Handles rate limiting with exponential backoff
 
-### 2. Generate Dashboard
+### 2. Update Pricing (First Time Only)
+
+After first data collection, update the price_lookup table with correct SKU IDs and pricing:
+
+```bash
+uv run python scripts/update_pricing.py
+```
+
+This script:
+- Syncs price_lookup table with actual SKUs from licenses table
+- Sets monthly costs based on Microsoft's published pricing
+- Handles 40+ common Microsoft 365 SKUs
+- Sets unknown SKUs to $0 (update manually via dashboard Pricing tab)
+
+**Note**: Only needed once after initial data collection or when new SKUs appear.
+
+### 3. Generate Dashboard
 
 ```bash
 uv run python scripts/generate_dashboard.py
@@ -106,7 +122,7 @@ Creates `m365_dashboard.html` with:
 - **Pricing**: Editable SKU pricing with SQL export
 - **Collection Info**: Comprehensive collection metadata, checkpoints, and retry logs
 
-### 3. Review Dashboard
+### 4. Review Dashboard
 
 ```bash
 open m365_dashboard.html
@@ -204,6 +220,26 @@ Collects data from Microsoft Graph API.
 - `price_lookup` - SKU pricing
 - `user_licenses` - User assignments
 - `user_activity` - Sign-in dates
+
+### update_pricing.py
+
+Syncs price_lookup table with actual SKU IDs and sets correct monthly costs.
+
+**Purpose**:
+- Fixes SKU ID mismatches between licenses and price_lookup tables
+- Applies Microsoft's published pricing to 40+ common SKUs
+- Required after initial data collection
+
+**Pricing includes**:
+- Microsoft 365 Enterprise (E3, E5, F3)
+- Microsoft 365 Business (Basic, Standard, Premium)
+- Exchange, SharePoint, Teams plans
+- Power Platform (Power BI, Power Automate, Power Apps)
+- Project, Visio, Dynamics 365
+- Security & Compliance (Azure AD, Intune, EMS)
+- Microsoft 365 Copilot
+
+**Unknown SKUs**: Set to $0.00 (update manually via dashboard Pricing tab)
 
 ### generate_dashboard.py
 
