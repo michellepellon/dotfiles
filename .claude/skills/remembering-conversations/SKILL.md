@@ -1,6 +1,7 @@
 ---
-name: Remembering Conversations
+name: remembering-conversations
 description: Search previous Claude Code conversations for facts, patterns, decisions, and context using semantic or text search. Use when Michelle mentions "we discussed this before", when debugging similar issues, when looking for architectural decisions or code patterns from past work, before reinventing solutions, or when finding specific git SHAs or error messages.
+when_to_use: When Michelle says "we discussed this before". When debugging similar issues. When looking for past architectural decisions. When searching for code patterns from previous work. Before reinventing solutions. When finding specific git SHAs or error messages.
 allowed-tools: Bash, Read, Task
 ---
 

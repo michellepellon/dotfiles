@@ -43,16 +43,18 @@ Skills activate automatically based on task context. [See all details →](docs/
 
 | Skill | Category | Activates When | What It Does |
 |-------|----------|----------------|--------------|
-| **[Brainstorming](docs/skills/brainstorming.md)** | design | Before implementation | Refine rough ideas into validated designs through structured questioning |
-| **[Test-Driven Development](docs/skills/test-driven-development.md)** | coding | All coding tasks | Enforces TDD workflow, requires unit/integration/e2e tests |
-| **[Simplifying Control Flow](docs/skills/simplifying-control-flow.md)** | coding | Writing conditionals | Flatten nested ifs, keep nesting < 3 levels |
-| **[Remembering Conversations](docs/skills/remembering-conversations.md)** | collaboration | Past context needed | Semantic search of archived conversations |
-| **[Quick Descriptive Stats](docs/skills/quick-descriptive-stats.md)** | analysis | CSV uploaded | Automatic statistics, correlations, visualizations |
-| **[Browsing](docs/skills/browsing.md)** | automation | Browser automation needed | Chrome control via DevTools Protocol |
+| **[Brainstorming](docs/skills/brainstorming.md)** | collaboration | Before implementation | Refine rough ideas into validated designs through structured questioning |
+| **[Browsing](docs/skills/browsing.md)** | automation | Browser automation needed | Chrome control via DevTools Protocol for authenticated sessions |
+| **[Creating Skills](docs/skills/creating-skills.md)** | meta | Creating new skills | TDD for process documentation - test with subagents before writing |
+| **[Executing Plans](docs/skills/executing-plans.md)** | collaboration | Implementation plan provided | Execute plans in controlled batches with review checkpoints |
+| **[M365 Cost Management](docs/skills/m365-cost-management.md)** | cost analysis | Optimizing SaaS spending | Analyze M365 license costs, identify inactive users, track utilization |
 | **[PDF](docs/skills/pdf.md)** | documents | PDF processing needed | Extract text/tables, create, merge, split, fill forms |
-| **[Excel/XLSX](docs/skills/xlsx.md)** | documents | Excel/spreadsheet work needed | Data analysis, formulas, formatting, financial models |
+| **[Quick Descriptive Stats](docs/skills/quick-descriptive-stats.md)** | analysis | CSV uploaded | Automatic statistics, correlations, visualizations |
+| **[Remembering Conversations](docs/skills/remembering-conversations.md)** | collaboration | Past context needed | Semantic search of archived conversations |
+| **[Simplifying Control Flow](docs/skills/simplifying-control-flow.md)** | coding | Writing conditionals | Flatten nested ifs, keep nesting < 3 levels |
+| **[Test-Driven Development](docs/skills/test-driven-development.md)** | coding | All coding tasks | Enforces TDD workflow, requires unit/integration/e2e tests |
 | **[Writing Clearly and Concisely](docs/skills/writing-clearly-and-concisely.md)** | writing | Writing/editing text | Apply Strunk's rules - active voice, omit needless words |
-| **[Creating Skills](docs/skills/creating-skills.md)** | meta | Creating new skills | TDD for process documentation - test before writing |
+| **[Excel/XLSX](docs/skills/xlsx.md)** | documents | Excel/spreadsheet work needed | Data analysis, formulas, formatting, financial models |
 
 ## Documentation
 

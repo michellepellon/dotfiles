@@ -1,6 +1,7 @@
 ---
-name: Quick Descriptive Stats
+name: quick-descriptive-stats
 description: Automatically generate quick descriptive statistics and exploratory data analysis for CSV files with visualizations. Use when a CSV file is uploaded, when analyzing tabular data, when requesting data summaries, or when exploring dataset structure and quality. Proactively runs full analysis without asking questions or offering options.
+when_to_use: When CSV file is uploaded. When exploring new dataset. When requesting data summary. When checking data quality. When starting data analysis project. Activate immediately without asking.
 allowed-tools: Bash, Read, Write
 ---
 
@@ -8,6 +9,8 @@ allowed-tools: Bash, Read, Write
 
 Automatically generates comprehensive descriptive statistics and exploratory
 data analysis (EDA) for CSV files.
+
+**Announce at start:** "I'm using the quick-descriptive-stats skill to analyze this dataset."
 
 ## Core Principle
 

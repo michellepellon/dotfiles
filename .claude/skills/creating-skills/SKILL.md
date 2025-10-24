@@ -1,5 +1,5 @@
 ---
-name: Creating Skills
+name: creating-skills
 description: TDD for process documentation - test with subagents before writing, iterate until bulletproof
 when_to_use: When you discover a technique, pattern, or tool worth documenting for reuse. When you've written a skill and need to verify it works before deploying.
 version: 4.0.0
@@ -15,6 +15,8 @@ languages: all
 You write test cases (pressure scenarios with subagents), watch them fail (baseline behavior), write the skill (documentation), watch tests pass (agents comply), and refactor (close loopholes).
 
 **Core principle:** If you didn't watch an agent fail without the skill, you don't know if the skill teaches the right thing.
+
+**Announce at start:** "I'm using the creating-skills skill to build and validate this skill."
 
 See skills/testing/test-driven-development for the fundamental RED-GREEN-REFACTOR cycle. This skill adapts TDD to documentation.
 
