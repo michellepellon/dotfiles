@@ -1,0 +1,22 @@
+# Brewfile - Install with: brew bundle
+
+# Taps
+tap "teamookla/speedtest"
+
+# CLI tools
+brew "git"
+brew "gh"
+brew "nvm"
+brew "yadm"
+brew "speedtest"
+brew "htop"
+
+# Applications (casks)
+cask "ghostty"
+cask "docker"
+cask "pareto-security"
+cask "google-chrome"
+cask "beekeeper-studio"
+cask "zoom"
+cask "granola"
+cask "bitwarden"
