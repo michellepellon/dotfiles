@@ -1,0 +1,109 @@
+# =============================================================================
+# Mutt Configuration
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Identity
+# -----------------------------------------------------------------------------
+set realname = "Michelle Pellon"
+set from = "mgracepellon@gmail.com"
+set use_from = yes
+set envelope_from = yes
+
+# -----------------------------------------------------------------------------
+# Gmail IMAP
+# -----------------------------------------------------------------------------
+set folder = "imaps://imap.gmail.com:993"
+set imap_user = "mgracepellon@gmail.com"
+set spoolfile = "+INBOX"
+set postponed = "+[Gmail]/Drafts"
+set trash = "+[Gmail]/Trash"
+set imap_keepalive = 300
+
+# -----------------------------------------------------------------------------
+# Gmail SMTP
+# -----------------------------------------------------------------------------
+set smtp_url = "smtps://mgracepellon@gmail.com@smtp.gmail.com:465/"
+set smtp_authenticators = "plain"
+
+# -----------------------------------------------------------------------------
+# Credentials
+# Store password in ~/.mutt/credentials with permissions 600:
+#   set imap_pass = "your-app-password"
+#   set smtp_pass = "your-app-password"
+# -----------------------------------------------------------------------------
+source ~/.mutt/credentials
+
+# -----------------------------------------------------------------------------
+# SSL/TLS
+# -----------------------------------------------------------------------------
+set ssl_force_tls = yes
+set ssl_starttls = yes
+
+# -----------------------------------------------------------------------------
+# Caching
+# Improves performance by caching headers and message bodies locally.
+# -----------------------------------------------------------------------------
+set header_cache = "~/.mutt/cache/headers"
+set message_cachedir = "~/.mutt/cache/bodies"
+set certificate_file = "~/.mutt/certificates"
+
+# -----------------------------------------------------------------------------
+# Sorting & Threading
+# Messages sorted by thread, newest first within each thread.
+# -----------------------------------------------------------------------------
+set sort = threads
+set sort_aux = reverse-last-date-received
+set strict_threads = yes
+set thread_received = yes
+
+# -----------------------------------------------------------------------------
+# Index Display
+# Format: ID | Flags | Date | Sender | Subject
+# -----------------------------------------------------------------------------
+set index_format = "%4C %Z %{%b %d} %-15.15F %s"
+set date_format = "%Y-%m-%d"
+set ascii_chars = yes
+
+# -----------------------------------------------------------------------------
+# Folder Behavior
+# -----------------------------------------------------------------------------
+set move = no                  # Don't move read messages
+set delete = yes               # Purge deleted messages without asking
+set confirmappend = no         # Don't ask when appending to mailbox
+set mark_old = no              # Don't mark unread messages as old
+
+# -----------------------------------------------------------------------------
+# Composing & Replies
+# -----------------------------------------------------------------------------
+set include = yes              # Include original message in reply
+set fast_reply = yes           # Skip prompts for to/subject on reply
+set edit_headers = yes         # Edit headers in composer
+set attribution = "On %{%Y-%m-%d}, %n wrote:"
+
+# -----------------------------------------------------------------------------
+# Pager
+# -----------------------------------------------------------------------------
+set pager_index_lines = 10     # Show index while reading
+set pager_context = 3          # Lines of context when scrolling
+set pager_stop = yes           # Don't scroll into next message
+
+# -----------------------------------------------------------------------------
+# Colors
+# -----------------------------------------------------------------------------
+color index brightyellow default "~U"   # Unread messages
+color index brightred default "~F"      # Flagged messages
+color index brightgreen default "~N"    # New messages
+
+# -----------------------------------------------------------------------------
+# Key Bindings - Searching & Filtering
+# -----------------------------------------------------------------------------
+macro index \Cu "<limit>~U<enter>" "Show unread only"
+macro index \Ca "<limit>all<enter>" "Show all messages"
+
+# -----------------------------------------------------------------------------
+# Key Bindings - Gmail Actions
+# Archive: Move to All Mail (Gmail keeps a copy, removes from inbox)
+# -----------------------------------------------------------------------------
+macro index,pager A "<save-message>+[Gmail]/All Mail<enter>" "Archive message"
+macro index,pager d "<save-message>+[Gmail]/Trash<enter>" "Move to trash"
