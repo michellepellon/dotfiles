@@ -1,24 +1,38 @@
-# Brewfile - Install with: brew bundle
+# Brewfile - Managed Homebrew dependencies
+# Install with: brew bundle --file=~/.config/brewfile/Brewfile
 
-# Taps
+# ─── Taps ─────────────────────────────────────────────────────────────
 tap "teamookla/speedtest"
 
-# CLI tools
-brew "git"
+# ─── CLI Tools ────────────────────────────────────────────────────────
+brew "fnm"
 brew "gh"
-brew "nvm"
-brew "yadm"
-brew "speedtest"
+brew "git"
 brew "htop"
+brew "spaceship"
+brew "speedtest"
+brew "uv"
 
-# Applications (casks)
-cask "ghostty"
-cask "docker"
-cask "pareto-security"
-cask "google-chrome"
+# ─── Infrastructure / DevOps ──────────────────────────────────────────
+brew "ansible"
+brew "ansible-lint"
+brew "awscli"
+brew "duckdb"
+brew "terraform"
+
+# ─── Development ─────────────────────────────────────────────────────
 cask "beekeeper-studio"
-cask "zoom"
-cask "granola"
-cask "bitwarden"
-cask "zed"
+cask "claude-code"
+cask "docker-desktop"
+cask "ghostty"
 cask "ngrok"
+cask "zed"
+
+# ─── Productivity ────────────────────────────────────────────────────
+cask "google-chrome"
+cask "granola"
+cask "zoom"
+
+# ─── Security ────────────────────────────────────────────────────────
+cask "bitwarden"
+cask "pareto-security"
