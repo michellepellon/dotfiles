@@ -5,6 +5,7 @@
 tap "teamookla/speedtest"
 
 # ─── CLI Tools ────────────────────────────────────────────────────────
+brew "ast-grep"
 brew "fnm"
 brew "gh"
 brew "git"
@@ -12,6 +13,7 @@ brew "htop"
 brew "spaceship"
 brew "speedtest"
 brew "uv"
+brew "wget"
 
 # ─── Infrastructure / DevOps ──────────────────────────────────────────
 brew "ansible"
