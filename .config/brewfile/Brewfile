@@ -12,6 +12,7 @@ brew "git"
 brew "htop"
 brew "spaceship"
 brew "speedtest"
+brew "tmux"
 brew "uv"
 brew "wget"
 
