@@ -1,35 +1,21 @@
 # Brewfile - Managed Homebrew dependencies
 # Install with: brew bundle --file=~/.config/brewfile/Brewfile
 
-# ─── Taps ─────────────────────────────────────────────────────────────
-tap "teamookla/speedtest"
-
-# ─── CLI Tools ────────────────────────────────────────────────────────
-brew "ast-grep"
-brew "fnm"
-brew "gh"
-brew "git"
+# ─── Misc ─────────────────────────────────────────────────────────────
 brew "htop"
 brew "spaceship"
-brew "speedtest"
 brew "tmux"
-brew "uv"
-brew "wget"
 
 # ─── Infrastructure / DevOps ──────────────────────────────────────────
-brew "ansible"
-brew "ansible-lint"
 brew "awscli"
 brew "duckdb"
-brew "terraform"
 
 # ─── Development ─────────────────────────────────────────────────────
-cask "beekeeper-studio"
-cask "claude-code"
+brew "gh"
+brew "git"
+brew "uv"
 cask "docker-desktop"
 cask "ghostty"
-cask "ngrok"
-cask "zed"
 
 # ─── Productivity ────────────────────────────────────────────────────
 cask "google-chrome"
