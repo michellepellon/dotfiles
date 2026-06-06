@@ -14,6 +14,7 @@ brew "duckdb"
 brew "gh"
 brew "git"
 brew "uv"
+brew "yadm"
 cask "docker-desktop"
 cask "ghostty"
 
