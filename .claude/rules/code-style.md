@@ -7,3 +7,4 @@ description: Code style conventions across all projects
 - Comments must be evergreen — no temporal references to refactors or recent changes
 - Never remove code comments unless provably false
 - Never create duplicate templates/files to work around issues — fix the original
+- Name things by what they do, not 'improved'/'new'/'enhanced' — naming must stay evergreen
