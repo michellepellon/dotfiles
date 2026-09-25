@@ -1,3 +1,6 @@
+# ABOUTME: Mutt config for Gmail over IMAP/SMTP, stowed to ~/.muttrc by ./install.
+# ABOUTME: Passwords live in ~/.mutt/credentials (mode 600), never in this repo.
+
 # =============================================================================
 # Mutt Configuration
 # =============================================================================

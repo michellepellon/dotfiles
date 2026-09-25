@@ -98,5 +98,8 @@ Phases 3–6 each add to the stow list in `install`, so they run one after anoth
 
 ## State
 
-Phases 1–5 done (2026-09-25). Phases 4 and 5 turned into deleting old configs (decisions 9, 10).
-Next step: phase 6 (mutt package).
+Phases 1–6 done in the repo (2026-09-25). Phase 6: `.muttrc` moved into the `mutt` stow package;
+`install` creates `~/.mutt/cache/{headers,bodies}` (mutt's manual: the header cache dir must exist
+in advance), keeps `~/.mutt` at mode 700, and notes a missing `~/.mutt/credentials`.
+Live run pending Michelle: `./install`, then write `~/.mutt/credentials` by hand.
+Next step: phase 7 (wrap-up).
