@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ABOUTME: Installs the packages in packages/arch.txt and packages/aur.txt through omarchy,
-# ABOUTME: then symlinks this repo's stow packages into $HOME with GNU stow.
+# ABOUTME: symlinks this repo's stow packages into $HOME with GNU stow, then registers the guard hook.
 
 set -u
 
@@ -29,8 +29,16 @@ If a real file already sits where a link should go, stow reports the
 conflict and changes nothing. Move that file aside by hand, then re-run.
 This script never overwrites or adopts your files.
 
+Last, registers the guard hook in ~/.claude/settings.json with jq, as a
+PreToolUse entry for Bash whose command is the hook's absolute path.
+If any PreToolUse command already ends in /.claude/hooks/guard-commands.sh,
+the file is left as is. Otherwise the entry is appended, keeping every
+other key and hook; a missing file is created. The new file is written
+next to the old one, then moved over it.
+
 Exits nonzero if omarchy isn't on PATH, a list is missing, an omarchy
-call fails, stow isn't on PATH after the package step, or stow fails.
+call fails, stow or jq isn't on PATH after the package step, stow fails,
+or settings.json isn't a valid JSON object (it is left untouched).
 EOF
 }
 
@@ -82,3 +90,30 @@ install_list "$aur_list" pkg aur add
 command -v stow >/dev/null || die "stow not found on PATH; add stow to packages/arch.txt and re-run."
 stow --no-folding -d "$here" -t "$HOME" "${stow_packages[@]}" \
   || die "stow failed for: ${stow_packages[*]}. If it reported conflicts, nothing was linked: move each file it names aside by hand (e.g. mv ~/.claude/CLAUDE.md ~/.claude/CLAUDE.md.bak), then re-run ./install."
+
+# register_hook — adds the guard hook to $HOME/.claude/settings.json unless a PreToolUse
+# entry already runs it. Writes to a temp file in the same dir, then mv, so a failed
+# write never leaves a half-written settings.json.
+register_hook() {
+  local settings="$HOME/.claude/settings.json" hook="$HOME/.claude/hooks/guard-commands.sh" tmp
+  local registered='any(.hooks.PreToolUse[]?.hooks[]?.command; type == "string" and endswith("/.claude/hooks/guard-commands.sh"))'
+  local append='.hooks.PreToolUse += [{matcher: "Bash", hooks: [{type: "command", command: $hook}]}]'
+
+  if [ -e "$settings" ]; then
+    jq -e 'type == "object"' "$settings" >/dev/null \
+      || die "$settings is not a valid JSON object; left it untouched. Fix it by hand, then re-run."
+    jq -e "$registered" "$settings" >/dev/null 2>&1 && return 0
+  fi
+
+  tmp="$settings.install-$$"
+  if [ -e "$settings" ]; then
+    jq --arg hook "$hook" "$append" "$settings" >"$tmp" && chmod --reference="$settings" "$tmp"
+  else
+    jq -n --arg hook "$hook" "{} | $append" >"$tmp"
+  fi || { rm -f "$tmp"; die "could not write the guard hook entry to $settings"; }
+  mv "$tmp" "$settings" || { rm -f "$tmp"; die "could not replace $settings"; }
+}
+
+# jq comes from packages/arch.txt, so check for it only after the package step.
+command -v jq >/dev/null || die "jq not found on PATH; add jq to packages/arch.txt and re-run."
+register_hook
