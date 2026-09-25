@@ -84,4 +84,6 @@ Phases 3–6 each add to the stow list in `install`, so they run one after anoth
 
 ## State
 
-Phases written. Next step: phase 1 (package lists and install script).
+Phase 1 implemented on `feat/install-packages`: `packages/arch.txt`, `packages/aur.txt`, `install`,
+`install.test.sh`; Brewfile deleted. Live run (`./install`) pending Michelle's approval.
+Next step after the live run: phase 2 (stow layout and the claude package).
