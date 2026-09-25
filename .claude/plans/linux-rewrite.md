@@ -25,8 +25,7 @@ Omarchy 4.0.4 on the target box.
    with help text and tests. Replaces the Brewfile. (2026-09-25)
 6. **Port tmux, Ghostty and mutt; drop vim.** Neovim 0.12 ships with Omarchy, so `.vimrc` goes.
    - tmux: superseded by decision 9.
-   - Ghostty: layer only settings Omarchy doesn't already cover (theme, font, Shift+Enter are covered;
-     opacity/blur belong to Hyprland).
+   - Ghostty: superseded by decision 10.
    - mutt: not installed; add `mutt` (Arch `extra`, 2.4.2) to the package list. Password stays in
      `~/.mutt/credentials`, outside the repo. (2026-09-25)
 7. **Guard hook: keep rules 1–2, drop `timeout`, and let the install script register it.** Close the
@@ -48,6 +47,12 @@ Omarchy 4.0.4 on the target box.
    theme; none of the old extras carry over. The old update-environment line only narrowed tmux's
    default list, and `set-clipboard` plus Ghostty's `clipboard-write = allow` replace `pbcopy`.
    `tmux` stays in `packages/arch.txt`. (2026-09-25)
+
+10. **Ghostty: use Omarchy's config unchanged; no Ghostty package.** The old settings were Mac-only
+    (`macos-icon`, `font-thicken`), clashed with Hyprland's `super` keys, belonged to Hyprland
+    (opacity, blur, decorations) or the Omarchy theme (colors), or were superseded (Shift+Enter,
+    `term`, zsh shell integration). None of the remaining preferences carry over. `ghostty` stays in
+    `packages/arch.txt`. (2026-09-25)
 
 ## Known facts
 
@@ -79,7 +84,8 @@ without Michelle's go-ahead: tests use scratch dirs, and each phase's live run i
    package is added. Originally: `tmux/.config/tmux/tmux.conf` sources Omarchy's default, then layers the prefix,
    splits and vi keys from the old config; `wl-copy` replaces `pbcopy`; no `S-Enter`. Check it with
    `tmux -L <scratch>`. Add `tmux` to the stow list. ~60 LOC.
-5. **Ghostty package.** Layer only settings Omarchy doesn't cover, via two `config-file` includes
+5. **Ghostty.** Done differently than planned (decision 10): the old Mac config is deleted and no
+   package is added. Originally: layer only settings Omarchy doesn't cover, via two `config-file` includes
    (decision 2). First test whether Omarchy's nested theme include loads before our overrides.
    Add `ghostty` to the stow list. ~20 LOC.
 6. **mutt package.** Move `.muttrc` into `mutt/`. Check whether mutt creates `~/.mutt/cache` itself; if not,
@@ -92,5 +98,5 @@ Phases 3–6 each add to the stow list in `install`, so they run one after anoth
 
 ## State
 
-Phases 1–4 done (2026-09-25). Phase 4 turned into deleting the old tmux files (decision 9).
-Next step: phase 5 (Ghostty package).
+Phases 1–5 done (2026-09-25). Phases 4 and 5 turned into deleting old configs (decisions 9, 10).
+Next step: phase 6 (mutt package).
