@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ABOUTME: PreToolUse hook — blocks Bash commands that violate CLAUDE.md/rules policy
+# ABOUTME: PreToolUse hook — blocks Bash commands that violate CLAUDE.md policy
 # ABOUTME: (git hook-bypass flags, pip/poetry/easy_install, uninstalled timeout). Fails open.
 
 set -u
@@ -53,7 +53,7 @@ STMT='(^|[;&|(])[[:space:]]*(sudo[[:space:]]+)?'
 # 1. git hook-bypass flags
 if printf '%s' "$cmd" | grep -Eq 'git[[:space:]]' \
   && printf '%s' "$cmd" | grep -Eq -- '--no-verify|--no-hooks|--no-pre-commit-hook'; then
-  block "git hook-bypass flags are forbidden (--no-verify/--no-hooks). Fix the failing hook, don't skip it. See rules/git.md."
+  block "git hook-bypass flags are forbidden (--no-verify/--no-hooks). Fix the failing hook, don't skip it. See 'Version control' in CLAUDE.md."
 fi
 
 # 2. pip / poetry / easy_install — uv is the only sanctioned package manager (uv pip is fine).
@@ -61,7 +61,7 @@ if printf '%s' "$cmd" | grep -Eq "${STMT}pip3?[[:space:]]+install" \
   || printf '%s' "$cmd" | grep -Eq -- '-m[[:space:]]+pip[[:space:]]+install' \
   || printf '%s' "$cmd" | grep -Eq "${STMT}easy_install([[:space:]]|\$)" \
   || printf '%s' "$cmd" | grep -Eq "${STMT}poetry[[:space:]]+(add|install|remove|update|lock)"; then
-  block "Use uv (uv add / uv run / uv sync) — pip/poetry/easy_install are not allowed. See rules/python.md."
+  block "Use uv (uv add / uv run / uv sync) — pip/poetry/easy_install are not allowed. See 'Languages & tools' in CLAUDE.md."
 fi
 
 # 3. timeout/gtimeout — not installed here; block early with guidance instead of a cryptic failure.
