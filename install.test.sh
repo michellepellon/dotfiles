@@ -179,7 +179,7 @@ if [ -d "$SANDBOX/home/.claude" ] && [ ! -L "$SANDBOX/home/.claude" ] \
   && [ -d "$SANDBOX/home/.claude/hooks" ] && [ ! -L "$SANDBOX/home/.claude/hooks" ]; then
   ok
 else
-  not_ok "~/.claude and ~/.claude/hooks are real dirs, not links into the repo"
+  not_ok "HOME/.claude and HOME/.claude/hooks are real dirs, not links into the repo"
 fi
 if [ ! -e "$SANDBOX/home/.claude/plans" ]; then ok; else not_ok ".claude/plans is never stowed"; fi
 
@@ -289,6 +289,7 @@ expect_no_temp "leaves no temp file behind"
 # --- a hook registered by hand (e.g. with a literal $HOME) counts; the file stays byte-identical ---
 setup $'git\n' ''
 mkdir -p "$SANDBOX/home/.claude"
+# shellcheck disable=SC2016 # a hand-written entry with a literal $HOME, as a person would write it.
 printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"$HOME/.claude/hooks/guard-commands.sh"}]}]},  "model":"opus"}' >"$(settings_file)"
 cp "$(settings_file)" "$SANDBOX/before.json"
 run_install

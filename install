@@ -97,6 +97,7 @@ stow --no-folding -d "$here" -t "$HOME" "${stow_packages[@]}" \
 register_hook() {
   local settings="$HOME/.claude/settings.json" hook="$HOME/.claude/hooks/guard-commands.sh" tmp
   local registered='any(.hooks.PreToolUse[]?.hooks[]?.command; type == "string" and endswith("/.claude/hooks/guard-commands.sh"))'
+  # shellcheck disable=SC2016 # $hook is a jq variable (--arg), not a shell one.
   local append='.hooks.PreToolUse += [{matcher: "Bash", hooks: [{type: "command", command: $hook}]}]'
 
   if [ -e "$settings" ]; then

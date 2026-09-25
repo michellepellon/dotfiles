@@ -76,8 +76,7 @@ check "timeout runs directly"     0 'timeout 5 ./run.sh'
 check "non-Bash tool ignored"     0 'pip install requests' 'Edit'
 
 # --- fail-open: malformed stdin must not block ---
-printf 'not valid json' | "$HOOK" >/dev/null 2>&1
-if [ $? = 0 ]; then pass=$((pass + 1)); else fail=$((fail + 1)); echo "FAIL: malformed JSON should exit 0 (fail-open)"; fi
+if printf 'not valid json' | "$HOOK" >/dev/null 2>&1; then pass=$((pass + 1)); else fail=$((fail + 1)); echo "FAIL: malformed JSON should exit 0 (fail-open)"; fi
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" = 0 ]
