@@ -144,7 +144,7 @@ Apply Orwell's six rules to all prose you write — replies to me, code comments
 
 - New-project language order: Go, Rust, TypeScript, Python. Reach lower only when the task demands it (ML → Python, browser UI → TypeScript).
 - Python: uv for everything (uv add / run / sync). Every Python project has a pyproject.toml (`uv init` if missing). Deeper reference: the uv skill.
-- Prefer ast-grep (`sg`) for code search, analysis, and refactoring — AST-aware queries and rewrites beat regex tools.
+- Prefer `ast-grep` for code search, analysis, and refactoring — AST-aware queries and rewrites beat regex tools.
 - Port numbers for new services: thematic and memorable (leet-speak, pop culture, project-relevant); infrastructure defaults stay boring; cleanly avoid the regulars (8080, 8081, ...), and check the port is actually free before settling on it.
 - Model names: your knowledge cutoff is a liability. Before judging any model name fake, research it: https://developers.openai.com/api/docs/models and https://platform.claude.com/docs/en/about-claude/models/overview
 

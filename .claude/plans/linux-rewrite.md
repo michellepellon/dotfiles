@@ -46,7 +46,7 @@ Omarchy 4.0.4 on the target box.
 
 - Omarchy's Ghostty config already sends Shift+Enter as CSI-u, so our tmux `S-Enter` binding is obsolete.
 - Clipboard on this box is `wl-copy`.
-- On Arch the ast-grep command is `ast-grep`, not `sg`; `CLAUDE.md` still says `sg`. Fix it.
+- On Arch the ast-grep command is `ast-grep`, not `sg`; `claude/.claude/CLAUDE.md` says `ast-grep`.
 - `~/.claude/CLAUDE.md` exists as a real file, so the first `stow claude` conflicts. Don't use `--adopt`: it moves the home file into the repo, replacing the repo copy. Move the home file aside by hand, with Michelle's go-ahead.
 
 ## Phases
@@ -85,4 +85,10 @@ Phases 3–6 each add to the stow list in `install`, so they run one after anoth
 ## State
 
 Phase 1 done: live run installed aws-cli-v2, duckdb, uv, bitwarden, stow and mutt (2026-09-25);
-a re-run is a no-op. Next step: phase 2 (stow layout and the claude package).
+a re-run is a no-op.
+
+Phase 2 implemented on `feat/stow-claude`: `claude/.claude/` holds `CLAUDE.md` and the guard hook,
+`.vimrc` is gone, and `install` ends with `stow --no-folding -d <repo> -t $HOME claude` (the
+`stow_packages` list near its top). Live stow pending Michelle's approval: the real
+`~/.claude/CLAUDE.md` must be moved aside first, or `./install` stops at the conflict.
+Next step: phase 2 review, then its live run.

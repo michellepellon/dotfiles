@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# ABOUTME: Installs the packages in packages/arch.txt and packages/aur.txt through
-# ABOUTME: `omarchy pkg add` and `omarchy pkg aur add`, which skip what's already installed.
+# ABOUTME: Installs the packages in packages/arch.txt and packages/aur.txt through omarchy,
+# ABOUTME: then symlinks this repo's stow packages into $HOME with GNU stow.
 
 set -u
+
+# Stow packages (top-level dirs of this repo) linked into $HOME, in order.
+stow_packages=(claude)
 
 usage() {
   cat <<'EOF'
@@ -17,8 +20,17 @@ One name per line; blank lines and anything after `#` are ignored.
 A list with no names is skipped. Both commands skip installed packages
 and prompt for sudo when something is missing.
 
-Exits nonzero if omarchy isn't on PATH, a list is missing, or an
-omarchy call fails.
+Then links the stow packages (claude) into $HOME:
+  stow --no-folding -d <this repo> -t $HOME <packages>
+--no-folding links each file and makes real directories, so apps that
+write into ~/.claude never write into the repo. Re-running is safe.
+
+If a real file already sits where a link should go, stow reports the
+conflict and changes nothing. Move that file aside by hand, then re-run.
+This script never overwrites or adopts your files.
+
+Exits nonzero if omarchy isn't on PATH, a list is missing, an omarchy
+call fails, stow isn't on PATH after the package step, or stow fails.
 EOF
 }
 
@@ -65,3 +77,8 @@ install_list() {
 
 install_list "$arch_list" pkg add
 install_list "$aur_list" pkg aur add
+
+# stow comes from packages/arch.txt, so check for it only after the package step.
+command -v stow >/dev/null || die "stow not found on PATH; add stow to packages/arch.txt and re-run."
+stow --no-folding -d "$here" -t "$HOME" "${stow_packages[@]}" \
+  || die "stow failed for: ${stow_packages[*]}. If it reported conflicts, nothing was linked: move each file it names aside by hand (e.g. mv ~/.claude/CLAUDE.md ~/.claude/CLAUDE.md.bak), then re-run ./install."
