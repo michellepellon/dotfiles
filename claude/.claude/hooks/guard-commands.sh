@@ -52,9 +52,10 @@ block() {
 # match real invocations (`pip install`) while ignoring substrings (`-m "pip install"`).
 STMT='(^|[;&|(])[[:space:]]*(sudo[[:space:]]+)?'
 
-# 1. git hook-bypass flags
+# 1. git hook-bypass flags. git accepts unambiguous prefixes of long options, so --no-veri and
+# --no-verif also mean --no-verify; shorter ones clash with --no-verbose and git rejects them.
 if printf '%s' "$cmd" | grep -Eq 'git[[:space:]]' \
-  && printf '%s' "$cmd" | grep -Eq -- '--no-verify|--no-hooks|--no-pre-commit-hook'; then
+  && printf '%s' "$cmd" | grep -Eq -- '--no-veri|--no-hooks|--no-pre-commit-hook'; then
   block "git hook-bypass flags are forbidden (--no-verify/--no-hooks). Fix the failing hook, don't skip it. See 'Version control' in CLAUDE.md."
 fi
 
