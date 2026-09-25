@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ABOUTME: Tests for install — runs it against scratch package lists with a stub omarchy
-# ABOUTME: that records its arguments. Run: ./install.test.sh (nonzero if any fail).
+# ABOUTME: and real stow into a scratch HOME. Run: ./install.test.sh (nonzero if any fail).
 
 set -u
 REPO="$(cd "$(dirname "$0")" && pwd)"
@@ -12,9 +12,16 @@ fail=0
 # The real omarchy sits in /usr/bin and /usr/share/omarchy/bin, so tests never put system
 # dirs on PATH: it holds only the stub and $TOOLS (symlinks to what install needs), and
 # bash runs by absolute path. No test can reach the real omarchy or install anything.
+# stow is real; every run sets HOME to a scratch dir, so it only links into that.
+# NOSTOW is TOOLS without stow.
 TOOLS="$SCRATCH/tools"
-mkdir -p "$TOOLS"
-for tool in dirname cat; do ln -s "$(command -v "$tool")" "$TOOLS/$tool"; done
+NOSTOW="$SCRATCH/nostow"
+mkdir -p "$TOOLS" "$NOSTOW"
+for tool in dirname cat; do
+  ln -s "$(command -v "$tool")" "$TOOLS/$tool"
+  ln -s "$(command -v "$tool")" "$NOSTOW/$tool"
+done
+ln -s "$(command -v stow)" "$TOOLS/stow"
 
 ok() { pass=$((pass + 1)); }
 not_ok() {
@@ -25,11 +32,15 @@ not_ok() {
 }
 
 # setup <arch-list-contents> <aur-list-contents> — fresh sandbox with a copy of install,
-# the given lists, and a stub omarchy that appends "$*" to $SANDBOX/calls and exits $STUB_EXIT.
+# the given lists, a copy of the claude stow package, a repo-only .claude/plans file, an
+# empty $SANDBOX/home to stow into, and a stub omarchy that appends "$*" to $SANDBOX/calls
+# and exits $STUB_EXIT.
 setup() {
   SANDBOX="$(mktemp -d "$SCRATCH/case.XXXXXX")"
   cp "$REPO/install" "$SANDBOX/install"
-  mkdir -p "$SANDBOX/packages" "$SANDBOX/bin"
+  cp -R "$REPO/claude" "$SANDBOX/claude"
+  mkdir -p "$SANDBOX/packages" "$SANDBOX/bin" "$SANDBOX/home" "$SANDBOX/.claude/plans"
+  printf 'plan\n' >"$SANDBOX/.claude/plans/plan.md"
   printf '%s' "$1" >"$SANDBOX/packages/arch.txt"
   printf '%s' "$2" >"$SANDBOX/packages/aur.txt"
   cat >"$SANDBOX/bin/omarchy" <<EOF
@@ -41,10 +52,10 @@ EOF
   : >"$SANDBOX/calls"
 }
 
-# run_install [args...] — runs the sandbox copy with the stub first on PATH; sets
-# $status, $out and $err.
+# run_install [args...] — runs the sandbox copy with the stub first on PATH and HOME set
+# to $SANDBOX/home; sets $status, $out and $err.
 run_install() {
-  PATH="$SANDBOX/bin:$TOOLS" "$BASH" "$SANDBOX/install" "$@" \
+  HOME="$SANDBOX/home" PATH="$SANDBOX/bin:$TOOLS" "$BASH" "$SANDBOX/install" "$@" \
     >"$SANDBOX/out" 2>"$SANDBOX/err"
   status=$?
   out="$(cat "$SANDBOX/out")"
@@ -107,7 +118,7 @@ expect_calls "repo arch.txt passes decision 8's packages; aur.txt is empty" \
 
 # --- omarchy missing from PATH ---
 setup $'git\n' ''
-PATH="$TOOLS" "$BASH" "$SANDBOX/install" >"$SANDBOX/out" 2>"$SANDBOX/err"
+HOME="$SANDBOX/home" PATH="$TOOLS" "$BASH" "$SANDBOX/install" >"$SANDBOX/out" 2>"$SANDBOX/err"
 status=$?
 err="$(cat "$SANDBOX/err")"
 expect_status "missing omarchy exits nonzero" 1
@@ -140,6 +151,63 @@ STUB_EXIT=1 run_install
 expect_status "failing aur call exits nonzero" 1
 expect_err_contains "failure names the aur list" "aur.txt"
 
+# expect_link <description> <path under $SANDBOX/home> — passes if the path is a symlink
+# that resolves to the same path in the sandbox's claude package.
+expect_link() {
+  local link="$SANDBOX/home/$2" want="$SANDBOX/claude/$2"
+  if [ -L "$link" ] && [ "$(readlink -f "$link")" = "$(readlink -f "$want")" ]; then
+    ok
+  else
+    not_ok "$1" "expected $link to link to $want"
+  fi
+}
+
+# --- stow: a clean HOME gets links into the claude package ---
+setup $'git\n' ''
+run_install
+expect_status "stow into a clean home" 0
+expect_link "stows CLAUDE.md" .claude/CLAUDE.md
+expect_link "stows the guard hook" .claude/hooks/guard-commands.sh
+# No folding: ~/.claude stays a real dir, so Claude Code's own files never land in the repo.
+if [ -d "$SANDBOX/home/.claude" ] && [ ! -L "$SANDBOX/home/.claude" ] \
+  && [ -d "$SANDBOX/home/.claude/hooks" ] && [ ! -L "$SANDBOX/home/.claude/hooks" ]; then
+  ok
+else
+  not_ok "~/.claude and ~/.claude/hooks are real dirs, not links into the repo"
+fi
+if [ ! -e "$SANDBOX/home/.claude/plans" ]; then ok; else not_ok ".claude/plans is never stowed"; fi
+
+# --- stow: re-running on a stowed HOME is a no-op ---
+run_install
+expect_status "re-run on a stowed home" 0
+expect_link "re-run keeps the CLAUDE.md link" .claude/CLAUDE.md
+
+# --- stow: a real file in the way stops the run and stays untouched ---
+setup $'git\n' ''
+mkdir -p "$SANDBOX/home/.claude"
+printf 'my own\nCLAUDE.md\n' >"$SANDBOX/home/.claude/CLAUDE.md"
+run_install
+expect_status "conflicting CLAUDE.md exits nonzero" 1
+expect_err_contains "conflict shows stow's message" ".claude/CLAUDE.md"
+expect_err_contains "conflict says to move the file aside" "move"
+if [ "$(cat "$SANDBOX/home/.claude/CLAUDE.md")" = $'my own\nCLAUDE.md' ] \
+  && [ ! -L "$SANDBOX/home/.claude/CLAUDE.md" ]; then
+  ok
+else
+  not_ok "conflicting CLAUDE.md keeps its contents"
+fi
+created="$(cd "$SANDBOX/home" && find . -mindepth 1 | sort | tr '\n' ' ')"
+if [ "$created" = "./.claude ./.claude/CLAUDE.md " ]; then ok; else not_ok "conflict creates nothing" "home holds: $created"; fi
+
+# --- stow missing from PATH (after the package step, which installs it) ---
+setup $'git\n' ''
+HOME="$SANDBOX/home" PATH="$SANDBOX/bin:$NOSTOW" "$BASH" "$SANDBOX/install" >"$SANDBOX/out" 2>"$SANDBOX/err"
+status=$?
+err="$(cat "$SANDBOX/err")"
+expect_status "missing stow exits nonzero" 1
+expect_err_contains "missing stow names stow" "stow not found"
+expect_calls "missing stow still runs the package step first" 'pkg add git'
+
 # --- help ---
 for flag in -h --help; do
   setup $'git\n' ''
@@ -148,6 +216,10 @@ for flag in -h --help; do
   case "$out" in
     *Usage:*) ok ;;
     *) not_ok "$flag prints usage" "stdout: $out" ;;
+  esac
+  case "$out" in
+    *stow*) ok ;;
+    *) not_ok "$flag describes the stow step" "stdout: $out" ;;
   esac
   expect_calls "$flag makes no omarchy calls" ''
 done
