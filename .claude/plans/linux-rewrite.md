@@ -23,13 +23,18 @@ Omarchy 4.0.4 on the target box.
 5. **Packages live in text lists plus a script.** `packages/arch.txt` and `packages/aur.txt`, one name per
    line, fed to `omarchy pkg add` / `omarchy pkg aur add` (both skip what's installed) by a small script
    with help text and tests. Replaces the Brewfile. (2026-09-25)
+6. **Port tmux, Ghostty and mutt; drop vim.** Neovim 0.12 ships with Omarchy, so `.vimrc` goes.
+   - tmux: layer prefix, splits and vi keys over Omarchy's config; `pbcopy` becomes `wl-copy`; drop `S-Enter`.
+   - Ghostty: layer only settings Omarchy doesn't already cover (theme, font, Shift+Enter are covered;
+     opacity/blur belong to Hyprland).
+   - mutt: not installed; add `mutt` (Arch `extra`, 2.4.2) to the package list. Password stays in
+     `~/.mutt/credentials`, outside the repo. (2026-09-25)
 
 ## Open questions (settle in this order)
 
-1. Per app, keep, port or drop: tmux, Ghostty, vim, mutt (vim and mutt aren't installed).
-2. Guard hook: drop the `timeout` rule; close the `git commit -n` and `core.hooksPath` holes
+1. Guard hook: drop the `timeout` rule; close the `git commit -n` and `core.hooksPath` holes
    test-first; decide how the hook gets registered in `~/.claude/settings.json`.
-3. Which Brewfile packages carry over to the Arch/AUR lists.
+2. Which Brewfile packages carry over to the Arch/AUR lists.
 
 ## Known facts
 
@@ -38,4 +43,4 @@ Omarchy 4.0.4 on the target box.
 
 ## State
 
-Planning. Next step: open question 1 (which apps to keep).
+Planning. Next step: open question 1 (guard hook).
