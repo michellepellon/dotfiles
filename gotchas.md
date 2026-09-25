@@ -1,7 +1,7 @@
 # Gotchas
 
 ## Being rewritten Linux-only; macOS support is dropped
-The configs still assume a Mac (`pbcopy` in tmux, `macos-icon` in Ghostty, yadm to install), but the repo is being rewritten for Linux (Omarchy/Arch) only. Port or delete Mac-only pieces; don't preserve them. The guard hook's `timeout` block is Mac-era and wrong on Linux. Omarchy owns some target configs (`~/.config/tmux`, `~/.config/ghostty`), so test in isolation (`tmux -L scratch -f ...`), never by overwriting `$HOME`.
+The configs still assume a Mac (`pbcopy` in tmux, `macos-icon` in Ghostty, yadm to install), but the repo is being rewritten for Linux (Omarchy/Arch) only. Port or delete Mac-only pieces; don't preserve them. Omarchy owns some target configs (`~/.config/tmux`, `~/.config/ghostty`), so test in isolation (`tmux -L scratch -f ...`), never by overwriting `$HOME`.
 
 ## No Co-Authored-By trailers
 Commit messages in this repo end at the body. Leave out `Co-Authored-By:` lines, even if your tool adds them by default.
@@ -17,3 +17,6 @@ Without it, stow links a whole missing directory into the repo (`~/.claude/hooks
 
 ## Live config follows the checked-out branch
 Once stowed, `~/.claude/CLAUDE.md` and the guard hook are symlinks into this checkout. Checking out a branch or commit without `claude/` (anything before phase 2) breaks the links, and Claude Code silently starts with no global instructions. Keep `~/Work/dotfiles` on `main` or a branch cut from it; after switching, check `ls -L ~/.claude/CLAUDE.md`.
+
+## `!` means different things in Claude Code and zsh
+In Claude Code's prompt, a leading `!` runs the command in the session. In a real zsh shell, `!` negates the exit status, so `! mv a b && ./install` treats mv's success as failure and skips `./install`. Say where each command should run. Anything needing sudo goes in a real terminal, because `!` has no TTY.

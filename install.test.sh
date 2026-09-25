@@ -13,15 +13,21 @@ fail=0
 # dirs on PATH: it holds only the stub and $TOOLS (symlinks to what install needs), and
 # bash runs by absolute path. No test can reach the real omarchy or install anything.
 # stow is real; every run sets HOME to a scratch dir, so it only links into that.
-# NOSTOW is TOOLS without stow.
+# jq is real too and only ever edits $SANDBOX/home/.claude/settings.json.
+# NOSTOW is TOOLS without stow; NOJQ is TOOLS without jq.
 TOOLS="$SCRATCH/tools"
 NOSTOW="$SCRATCH/nostow"
-mkdir -p "$TOOLS" "$NOSTOW"
-for tool in dirname cat; do
+NOJQ="$SCRATCH/nojq"
+mkdir -p "$TOOLS" "$NOSTOW" "$NOJQ"
+for tool in dirname cat mv rm chmod; do
   ln -s "$(command -v "$tool")" "$TOOLS/$tool"
   ln -s "$(command -v "$tool")" "$NOSTOW/$tool"
+  ln -s "$(command -v "$tool")" "$NOJQ/$tool"
 done
 ln -s "$(command -v stow)" "$TOOLS/stow"
+ln -s "$(command -v stow)" "$NOJQ/stow"
+ln -s "$(command -v jq)" "$TOOLS/jq"
+ln -s "$(command -v jq)" "$NOSTOW/jq"
 
 ok() { pass=$((pass + 1)); }
 not_ok() {
@@ -114,7 +120,7 @@ cp "$REPO/packages/arch.txt" "$REPO/packages/aur.txt" "$SANDBOX/packages/"
 run_install
 expect_status "repo lists" 0
 expect_calls "repo arch.txt passes decision 8's packages; aur.txt is empty" \
-  'pkg add aws-cli-v2 duckdb uv bitwarden tmux ghostty git ast-grep stow jq mutt'
+  'pkg add aws-cli-v2 duckdb uv bitwarden tmux ghostty git ast-grep stow jq mutt shellcheck'
 
 # --- omarchy missing from PATH ---
 setup $'git\n' ''
@@ -173,7 +179,7 @@ if [ -d "$SANDBOX/home/.claude" ] && [ ! -L "$SANDBOX/home/.claude" ] \
   && [ -d "$SANDBOX/home/.claude/hooks" ] && [ ! -L "$SANDBOX/home/.claude/hooks" ]; then
   ok
 else
-  not_ok "~/.claude and ~/.claude/hooks are real dirs, not links into the repo"
+  not_ok "HOME/.claude and HOME/.claude/hooks are real dirs, not links into the repo"
 fi
 if [ ! -e "$SANDBOX/home/.claude/plans" ]; then ok; else not_ok ".claude/plans is never stowed"; fi
 
@@ -208,6 +214,108 @@ expect_status "missing stow exits nonzero" 1
 expect_err_contains "missing stow names stow" "stow not found"
 expect_calls "missing stow still runs the package step first" 'pkg add git'
 
+# --- settings.json: the guard hook gets registered ---
+# settings_file / hook_path — the sandbox's ~/.claude/settings.json and the hook path
+# install should register (absolute, $HOME already expanded).
+settings_file() { printf '%s' "$SANDBOX/home/.claude/settings.json"; }
+hook_path() { printf '%s' "$SANDBOX/home/.claude/hooks/guard-commands.sh"; }
+
+# expect_settings <description> <expected JSON> — compares key-sorted, compact forms.
+expect_settings() {
+  local got want
+  got="$(jq -S -c . "$(settings_file)" 2>&1)"
+  want="$(printf '%s' "$2" | jq -S -c .)"
+  if [ "$got" = "$want" ]; then ok; else not_ok "$1" "expected: $want" "got:      $got"; fi
+}
+
+# expect_unchanged <description> <copy of the original file>
+expect_unchanged() {
+  if cmp -s "$2" "$(settings_file)"; then ok; else not_ok "$1" "settings.json changed: $(cat "$(settings_file)")"; fi
+}
+
+# expect_no_temp <description> — nothing but settings.json itself matches settings.json*.
+expect_no_temp() {
+  local leftover
+  leftover="$(cd "$SANDBOX/home/.claude" && find . -maxdepth 1 -name 'settings.json?*')"
+  if [ -z "$leftover" ]; then ok; else not_ok "$1" "found: $leftover"; fi
+}
+
+# --- a missing settings.json is created holding just the hook ---
+setup $'git\n' ''
+run_install
+expect_status "creates settings.json" 0
+expect_settings "new settings.json holds just the hook" \
+  "{\"hooks\":{\"PreToolUse\":[{\"matcher\":\"Bash\",\"hooks\":[{\"type\":\"command\",\"command\":\"$(hook_path)\"}]}]}}"
+
+# --- re-running leaves the registered file byte-identical ---
+cp "$(settings_file)" "$SANDBOX/before.json"
+run_install
+expect_status "re-run with the hook registered" 0
+expect_unchanged "re-run leaves settings.json byte-identical" "$SANDBOX/before.json"
+
+# --- existing keys and hooks are preserved; the hook is appended ---
+setup $'git\n' ''
+mkdir -p "$SANDBOX/home/.claude"
+cat >"$(settings_file)" <<'JSON'
+{
+  "model": "opus",
+  "enabledPlugins": { "superpowers@market": true },
+  "hooks": {
+    "PreToolUse": [
+      { "matcher": "Edit", "hooks": [ { "type": "command", "command": "/usr/local/bin/lint-edit" } ] }
+    ],
+    "Stop": [ { "hooks": [ { "type": "command", "command": "notify-send done" } ] } ]
+  }
+}
+JSON
+chmod 640 "$(settings_file)"
+run_install
+expect_status "adds the hook to existing settings" 0
+expect_settings "keeps other keys and hooks, appends the hook" "{
+  \"model\": \"opus\",
+  \"enabledPlugins\": { \"superpowers@market\": true },
+  \"hooks\": {
+    \"PreToolUse\": [
+      { \"matcher\": \"Edit\", \"hooks\": [ { \"type\": \"command\", \"command\": \"/usr/local/bin/lint-edit\" } ] },
+      { \"matcher\": \"Bash\", \"hooks\": [ { \"type\": \"command\", \"command\": \"$(hook_path)\" } ] }
+    ],
+    \"Stop\": [ { \"hooks\": [ { \"type\": \"command\", \"command\": \"notify-send done\" } ] } ]
+  }
+}"
+mode="$(stat -c %a "$(settings_file)")"
+if [ "$mode" = 640 ]; then ok; else not_ok "keeps the file's mode" "expected 640, got $mode"; fi
+expect_no_temp "leaves no temp file behind"
+
+# --- a hook registered by hand (e.g. with a literal $HOME) counts; the file stays byte-identical ---
+setup $'git\n' ''
+mkdir -p "$SANDBOX/home/.claude"
+# shellcheck disable=SC2016 # a hand-written entry with a literal $HOME, as a person would write it.
+printf '%s\n' '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"$HOME/.claude/hooks/guard-commands.sh"}]}]},  "model":"opus"}' >"$(settings_file)"
+cp "$(settings_file)" "$SANDBOX/before.json"
+run_install
+expect_status "hook already registered by hand" 0
+expect_unchanged "hand-registered hook leaves settings.json byte-identical" "$SANDBOX/before.json"
+
+# --- invalid JSON fails loudly and leaves the file untouched ---
+setup $'git\n' ''
+mkdir -p "$SANDBOX/home/.claude"
+printf '{"model": "opus",\n' >"$(settings_file)"
+cp "$(settings_file)" "$SANDBOX/before.json"
+run_install
+expect_status "invalid settings.json exits nonzero" 1
+expect_err_contains "invalid settings.json names the file" "settings.json"
+expect_unchanged "invalid settings.json stays untouched" "$SANDBOX/before.json"
+expect_no_temp "invalid settings.json leaves no temp file behind"
+
+# --- jq missing from PATH (after stow) ---
+setup $'git\n' ''
+HOME="$SANDBOX/home" PATH="$SANDBOX/bin:$NOJQ" "$BASH" "$SANDBOX/install" >"$SANDBOX/out" 2>"$SANDBOX/err"
+status=$?
+err="$(cat "$SANDBOX/err")"
+expect_status "missing jq exits nonzero" 1
+expect_err_contains "missing jq names jq" "jq not found"
+if [ ! -e "$(settings_file)" ]; then ok; else not_ok "missing jq writes no settings.json"; fi
+
 # --- help ---
 for flag in -h --help; do
   setup $'git\n' ''
@@ -220,6 +328,10 @@ for flag in -h --help; do
   case "$out" in
     *stow*) ok ;;
     *) not_ok "$flag describes the stow step" "stdout: $out" ;;
+  esac
+  case "$out" in
+    *settings.json*) ok ;;
+    *) not_ok "$flag describes the hook registration" "stdout: $out" ;;
   esac
   expect_calls "$flag makes no omarchy calls" ''
 done
