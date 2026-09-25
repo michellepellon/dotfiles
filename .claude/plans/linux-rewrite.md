@@ -20,13 +20,16 @@ Omarchy 4.0.4 on the target box.
 4. **One stow package per app.** e.g. `tmux/.config/tmux/tmux.conf`, `claude/.claude/CLAUDE.md`,
    `claude/.claude/hooks/guard-commands.sh`; install with `stow -t ~ tmux claude ...`. Repo-only files
    (`gotchas.md`, `.claude/plans/`) sit outside every package, so no ignore list is needed. (2026-09-25)
+5. **Packages live in text lists plus a script.** `packages/arch.txt` and `packages/aur.txt`, one name per
+   line, fed to `omarchy pkg add` / `omarchy pkg aur add` (both skip what's installed) by a small script
+   with help text and tests. Replaces the Brewfile. (2026-09-25)
 
 ## Open questions (settle in this order)
 
-1. Package list: replaces the Brewfile. Check `omarchy pkg add` for how it fits.
-2. Per app, keep, port or drop: tmux, Ghostty, vim, mutt (vim and mutt aren't installed).
-3. Guard hook: drop the `timeout` rule; close the `git commit -n` and `core.hooksPath` holes
+1. Per app, keep, port or drop: tmux, Ghostty, vim, mutt (vim and mutt aren't installed).
+2. Guard hook: drop the `timeout` rule; close the `git commit -n` and `core.hooksPath` holes
    test-first; decide how the hook gets registered in `~/.claude/settings.json`.
+3. Which Brewfile packages carry over to the Arch/AUR lists.
 
 ## Known facts
 
@@ -35,4 +38,4 @@ Omarchy 4.0.4 on the target box.
 
 ## State
 
-Planning. Next step: open question 1 (package list).
+Planning. Next step: open question 1 (which apps to keep).
