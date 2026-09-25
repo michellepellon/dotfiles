@@ -16,15 +16,16 @@ Omarchy 4.0.4 on the target box.
      `config-file = /usr/share/omarchy/config/ghostty/config` and then `config-file = <our overrides>`.
      Untested: whether Omarchy's nested theme include loads before our overrides. Test before overriding colors.
 3. **GNU stow manages the dotfiles.** It symlinks from this checkout into `$HOME`, so there's one copy and
-   edits go live at once. Repo-only files (`gotchas.md`, this plan) stay out of `$HOME` through stow's
-   ignore list; confirm `.stow-local-ignore` once stow is installed. stow is in Arch `extra` (2.4.1). (2026-09-25)
+   edits go live at once. stow is in Arch `extra` (2.4.1). (2026-09-25)
+4. **One stow package per app.** e.g. `tmux/.config/tmux/tmux.conf`, `claude/.claude/CLAUDE.md`,
+   `claude/.claude/hooks/guard-commands.sh`; install with `stow -t ~ tmux claude ...`. Repo-only files
+   (`gotchas.md`, `.claude/plans/`) sit outside every package, so no ignore list is needed. (2026-09-25)
 
 ## Open questions (settle in this order)
 
-1. Repo layout for stow: one package at the repo root, or one package per app (`tmux/.config/tmux/...`)?
-2. Package list: replaces the Brewfile. Check `omarchy pkg add` for how it fits.
-3. Per app, keep, port or drop: tmux, Ghostty, vim, mutt (vim and mutt aren't installed).
-4. Guard hook: drop the `timeout` rule; close the `git commit -n` and `core.hooksPath` holes
+1. Package list: replaces the Brewfile. Check `omarchy pkg add` for how it fits.
+2. Per app, keep, port or drop: tmux, Ghostty, vim, mutt (vim and mutt aren't installed).
+3. Guard hook: drop the `timeout` rule; close the `git commit -n` and `core.hooksPath` holes
    test-first; decide how the hook gets registered in `~/.claude/settings.json`.
 
 ## Known facts
@@ -34,4 +35,4 @@ Omarchy 4.0.4 on the target box.
 
 ## State
 
-Planning. Next step: open question 1 (stow layout).
+Planning. Next step: open question 1 (package list).
