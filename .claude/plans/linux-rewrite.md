@@ -24,7 +24,7 @@ Omarchy 4.0.4 on the target box.
    line, fed to `omarchy pkg add` / `omarchy pkg aur add` (both skip what's installed) by a small script
    with help text and tests. Replaces the Brewfile. (2026-09-25)
 6. **Port tmux, Ghostty and mutt; drop vim.** Neovim 0.12 ships with Omarchy, so `.vimrc` goes.
-   - tmux: layer prefix, splits and vi keys over Omarchy's config; `pbcopy` becomes `wl-copy`; drop `S-Enter`.
+   - tmux: superseded by decision 9.
    - Ghostty: layer only settings Omarchy doesn't already cover (theme, font, Shift+Enter are covered;
      opacity/blur belong to Hyprland).
    - mutt: not installed; add `mutt` (Arch `extra`, 2.4.2) to the package list. Password stays in
@@ -41,6 +41,13 @@ Omarchy 4.0.4 on the target box.
      `yadm` (stow replaces it), `docker-desktop` (`docker` is installed), `google-chrome`, `zoom`,
      `granola`, `pareto-security`.
    - `gh` stays in mise, where it's installed; don't add `github-cli`.
+
+9. **tmux: use Omarchy's config unchanged; no tmux package.** Omarchy's default already has the `C-Space`
+   prefix, vi copy mode, mouse, 1-based windows, `M-1`…`M-9` and a status bar on top. Where old keys
+   clashed (`h`, `k`, `r`, `C-h/j/k/l`), Omarchy's win; its theme-following colors replace the Mocha
+   theme; none of the old extras carry over. The old update-environment line only narrowed tmux's
+   default list, and `set-clipboard` plus Ghostty's `clipboard-write = allow` replace `pbcopy`.
+   `tmux` stays in `packages/arch.txt`. (2026-09-25)
 
 ## Known facts
 
@@ -68,7 +75,8 @@ without Michelle's go-ahead: tests use scratch dirs, and each phase's live run i
 3. **Guard hook.** Drop the `timeout` rule and its tests. Close the `git commit -n` and
    `git -c core.hooksPath=...` holes, failing tests first. `install` merges the hook entry into
    `~/.claude/settings.json` with jq only if it's missing; tests run against a temp settings file. ~70 LOC.
-4. **tmux package.** `tmux/.config/tmux/tmux.conf` sources Omarchy's default, then layers the prefix,
+4. **tmux.** Done differently than planned (decision 9): the old Mac tmux files are deleted and no
+   package is added. Originally: `tmux/.config/tmux/tmux.conf` sources Omarchy's default, then layers the prefix,
    splits and vi keys from the old config; `wl-copy` replaces `pbcopy`; no `S-Enter`. Check it with
    `tmux -L <scratch>`. Add `tmux` to the stow list. ~60 LOC.
 5. **Ghostty package.** Layer only settings Omarchy doesn't cover, via two `config-file` includes
@@ -84,6 +92,5 @@ Phases 3–6 each add to the stow list in `install`, so they run one after anoth
 
 ## State
 
-Phases 1–3 done (2026-09-25). The guard hook is registered in the real `~/.claude/settings.json` and
-blocks in live sessions; a re-run of `./install` leaves the file byte-identical. All scripts are
-shellcheck-clean. Next step: phase 4 (tmux package).
+Phases 1–4 done (2026-09-25). Phase 4 turned into deleting the old tmux files (decision 9).
+Next step: phase 5 (Ghostty package).
