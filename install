@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # ABOUTME: Installs the packages in packages/arch.txt and packages/aur.txt through omarchy,
-# ABOUTME: symlinks this repo's stow packages into $HOME with GNU stow, then registers the guard hook.
+# ABOUTME: symlinks this repo's stow packages into $HOME with GNU stow, prepares mutt, and registers the guard hook.
 
 set -u
 
 # Stow packages (top-level dirs of this repo) linked into $HOME, in order.
-stow_packages=(claude)
+stow_packages=(claude mutt)
 
 usage() {
   cat <<'EOF'
@@ -20,7 +20,7 @@ One name per line; blank lines and anything after `#` are ignored.
 A list with no names is skipped. Both commands skip installed packages
 and prompt for sudo when something is missing.
 
-Then links the stow packages (claude) into $HOME:
+Then links the stow packages (claude, mutt) into $HOME:
   stow --no-folding -d <this repo> -t $HOME <packages>
 --no-folding links each file and makes real directories, so apps that
 write into ~/.claude never write into the repo. Re-running is safe.
@@ -28,6 +28,11 @@ write into ~/.claude never write into the repo. Re-running is safe.
 If a real file already sits where a link should go, stow reports the
 conflict and changes nothing. Move that file aside by hand, then re-run.
 This script never overwrites or adopts your files.
+
+Then creates ~/.mutt/cache/headers and ~/.mutt/cache/bodies (mutt needs
+the header cache dir to exist in advance) and sets ~/.mutt to mode 700,
+since it holds your password file. If ~/.mutt/credentials is missing, it
+prints a note on how to write it; the file never enters this repo.
 
 Last, registers the guard hook in ~/.claude/settings.json with jq, as a
 PreToolUse entry for Bash whose command is the hook's absolute path.
@@ -38,7 +43,7 @@ next to the old one, then moved over it.
 
 Exits nonzero if omarchy isn't on PATH, a list is missing, an omarchy
 call fails, stow or jq isn't on PATH after the package step, stow fails,
-or settings.json isn't a valid JSON object (it is left untouched).
+~/.mutt can't be prepared, or settings.json isn't a valid JSON object (it is left untouched).
 EOF
 }
 
@@ -90,6 +95,20 @@ install_list "$aur_list" pkg aur add
 command -v stow >/dev/null || die "stow not found on PATH; add stow to packages/arch.txt and re-run."
 stow --no-folding -d "$here" -t "$HOME" "${stow_packages[@]}" \
   || die "stow failed for: ${stow_packages[*]}. If it reported conflicts, nothing was linked: move each file it names aside by hand (e.g. mv ~/.claude/CLAUDE.md ~/.claude/CLAUDE.md.bak), then re-run ./install."
+
+# prepare_mutt — mutt needs its header cache dir to exist before it starts (mutt manual,
+# header_cache), and ~/.mutt holds the password file, so it stays private.
+prepare_mutt() {
+  local dir="$HOME/.mutt"
+  if ! { mkdir -p "$dir/cache/headers" "$dir/cache/bodies" && chmod 700 "$dir"; }; then
+    die "could not prepare $dir (cache dirs, mode 700)"
+  fi
+  [ -f "$dir/credentials" ] || printf '%s\n' \
+    "install: note: $dir/credentials is missing, so mutt can't log in. Create it with mode 600:" \
+    "  set imap_pass = \"<gmail app password>\"" \
+    "  set smtp_pass = \"<gmail app password>\"" >&2
+}
+prepare_mutt
 
 # register_hook — adds the guard hook to $HOME/.claude/settings.json unless a PreToolUse
 # entry already runs it. Writes to a temp file in the same dir, then mv, so a failed
