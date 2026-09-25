@@ -33,17 +33,22 @@ Omarchy 4.0.4 on the target box.
    `git commit -n` and `git -c core.hooksPath=...` holes test-first. The install script merges the hook
    entry into `~/.claude/settings.json` with jq only if it's missing; the file itself stays untracked
    because Claude Code rewrites it. Add `jq` to the package list. (2026-09-25)
-
-## Open questions (settle in this order)
-
-1. Which Brewfile packages carry over to the Arch/AUR lists.
+8. **Package list contents.** (2026-09-25)
+   - `packages/arch.txt`: `aws-cli-v2`, `duckdb`, `uv`, `bitwarden`, `tmux`, `ghostty`, `git`, `ast-grep`,
+     `stow`, `jq`, `mutt`. Omarchy installs some of these today; we list them because our configs depend on them.
+   - `packages/aur.txt`: empty for now.
+   - Dropped from the Brewfile: `htop` (Omarchy ships `btop`), `spaceship` (zsh prompt; Omarchy uses `starship`),
+     `yadm` (stow replaces it), `docker-desktop` (`docker` is installed), `google-chrome`, `zoom`,
+     `granola`, `pareto-security`.
+   - `gh` stays in mise, where it's installed; don't add `github-cli`.
 
 ## Known facts
 
 - Omarchy's Ghostty config already sends Shift+Enter as CSI-u, so our tmux `S-Enter` binding is obsolete.
 - Clipboard on this box is `wl-copy`.
+- On Arch the ast-grep command is `ast-grep`, not `sg`; `CLAUDE.md` still says `sg`. Fix it.
 - `~/.claude/CLAUDE.md` exists as a real file, so the first `stow claude` conflicts; use `--adopt` or move it first.
 
 ## State
 
-Planning. Next step: open question 1 (Brewfile packages).
+Planning done: all decisions made. Next step: break the work into phases for subagents.
