@@ -114,7 +114,7 @@ cp "$REPO/packages/arch.txt" "$REPO/packages/aur.txt" "$SANDBOX/packages/"
 run_install
 expect_status "repo lists" 0
 expect_calls "repo arch.txt passes decision 8's packages; aur.txt is empty" \
-  'pkg add aws-cli-v2 duckdb uv bitwarden tmux ghostty git ast-grep stow jq mutt'
+  'pkg add aws-cli-v2 duckdb uv bitwarden tmux ghostty git ast-grep stow jq mutt shellcheck'
 
 # --- omarchy missing from PATH ---
 setup $'git\n' ''
