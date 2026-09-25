@@ -49,6 +49,39 @@ Omarchy 4.0.4 on the target box.
 - On Arch the ast-grep command is `ast-grep`, not `sg`; `CLAUDE.md` still says `sg`. Fix it.
 - `~/.claude/CLAUDE.md` exists as a real file, so the first `stow claude` conflicts; use `--adopt` or move it first.
 
+## Phases
+
+One branch and one PR per phase, merged in order. Each phase is handed to an implementer subagent, then
+reviewed, then checked by the orchestrator. Bash scripts and tests follow the style of
+`guard-commands.sh` / `guard-commands.test.sh`. Nothing touches the real `$HOME` or installs packages
+without Michelle's go-ahead: tests use scratch dirs, and each phase's live run is a separate, approved step.
+
+1. **Package lists and install script.** Add `packages/arch.txt` and `packages/aur.txt` (decision 8) and
+   an `install` script at the repo root that feeds them to `omarchy pkg add` / `omarchy pkg aur add`,
+   skipping blank lines and `#` comments. `--help`, clear errors, tests. Delete the Brewfile.
+   Live run (approval needed): `./install` installs stow, mutt, uv and the rest. ~120 LOC.
+2. **stow layout and the claude package.** Move `.claude/CLAUDE.md` and `.claude/hooks/` into
+   `claude/.claude/`; `.claude/plans/` stays at the repo root. `install` gains a stow step
+   (`stow -t ~ <packages>`) that stops with a clear message on conflicts like the real
+   `~/.claude/CLAUDE.md`, never overwriting it. Fix `sg` → `ast-grep` in `CLAUDE.md`. Delete `.vimrc`.
+   Tests stow into a scratch target. Live run (approval needed): first real stow. ~80 LOC.
+3. **Guard hook.** Drop the `timeout` rule and its tests. Close the `git commit -n` and
+   `git -c core.hooksPath=...` holes, failing tests first. `install` merges the hook entry into
+   `~/.claude/settings.json` with jq only if it's missing; tests run against a temp settings file. ~70 LOC.
+4. **tmux package.** `tmux/.config/tmux/tmux.conf` sources Omarchy's default, then layers the prefix,
+   splits and vi keys from the old config; `wl-copy` replaces `pbcopy`; no `S-Enter`. Check it with
+   `tmux -L <scratch>`. Add `tmux` to the stow list. ~60 LOC.
+5. **Ghostty package.** Layer only settings Omarchy doesn't cover, via two `config-file` includes
+   (decision 2). First test whether Omarchy's nested theme include loads before our overrides.
+   Add `ghostty` to the stow list. ~20 LOC.
+6. **mutt package.** Move `.muttrc` into `mutt/`. Check whether mutt creates `~/.mutt/cache` itself; if not,
+   `install` creates it. Michelle writes `~/.mutt/credentials` by hand; it never enters the repo.
+   Add `mutt` to the stow list. ~20 LOC.
+7. **Wrap-up.** Remove leftover Mac files, rewrite the `gotchas.md` entry now that the rewrite has landed,
+   update memory, and mark this plan done. ~20 LOC.
+
+Phases 3–6 each add to the stow list in `install`, so they run one after another, not in parallel.
+
 ## State
 
-Planning done: all decisions made. Next step: break the work into phases for subagents.
+Phases written. Next step: phase 1 (package lists and install script).
