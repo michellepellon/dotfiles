@@ -1,7 +1,7 @@
 # Gotchas
 
 ## Being rewritten Linux-only; macOS support is dropped
-The configs still assume a Mac (`pbcopy` in tmux, `macos-icon` in Ghostty, yadm to install), but the repo is being rewritten for Linux (Omarchy/Arch) only. Port or delete Mac-only pieces; don't preserve them. Omarchy owns some target configs (`~/.config/tmux`, `~/.config/ghostty`), so test in isolation (`tmux -L scratch -f ...`), never by overwriting `$HOME`.
+The configs still assume a Mac (`macos-icon` in Ghostty), but the repo is being rewritten for Linux (Omarchy/Arch) only. Port or delete Mac-only pieces; don't preserve them. Omarchy owns some target configs (`~/.config/tmux`, `~/.config/ghostty`), so test in isolation (`tmux -L scratch -f ...`), never by overwriting `$HOME`.
 
 ## No Co-Authored-By trailers
 Commit messages in this repo end at the body. Leave out `Co-Authored-By:` lines, even if your tool adds them by default.
@@ -20,3 +20,6 @@ Once stowed, `~/.claude/CLAUDE.md` and the guard hook are symlinks into this che
 
 ## `!` means different things in Claude Code and zsh
 In Claude Code's prompt, a leading `!` runs the command in the session. In a real zsh shell, `!` negates the exit status, so `! mv a b && ./install` treats mv's success as failure and skips `./install`. Say where each command should run. Anything needing sudo goes in a real terminal, because `!` has no TTY.
+
+## The guard hook blocks text that mentions bypass flags
+Rule 1 blocks any Bash command containing `git` plus `--no-veri`/`--no-hooks`/`--no-pre-commit-hook`, even inside quotes. When a commit message, PR body or edit script mentions those flags, write the text to a file (Write tool) and pass the file: `git commit -F`, `gh pr create --body-file`, `python3 script.py`. No flag reaches git, so this isn't a bypass.
