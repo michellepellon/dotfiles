@@ -84,4 +84,5 @@ Phases 3–6 each add to the stow list in `install`, so they run one after anoth
 
 ## State
 
-Phases written. Next step: phase 1 (package lists and install script).
+Phase 1 done: live run installed aws-cli-v2, duckdb, uv, bitwarden, stow and mutt (2026-09-25);
+a re-run is a no-op. Next step: phase 2 (stow layout and the claude package).

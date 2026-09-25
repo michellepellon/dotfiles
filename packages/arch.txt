@@ -1,0 +1,13 @@
+# Arch packages for ./install, fed to `omarchy pkg add` (skips what's installed).
+# One package name per line. Blank lines and anything after `#` are ignored.
+aws-cli-v2
+duckdb
+uv
+bitwarden
+tmux
+ghostty
+git
+ast-grep
+stow
+jq
+mutt
