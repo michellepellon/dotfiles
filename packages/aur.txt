@@ -1,0 +1,2 @@
+# AUR packages for ./install, fed to `omarchy pkg aur add` (skips what's installed).
+# One package name per line. Blank lines and anything after `#` are ignored.
