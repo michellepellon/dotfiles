@@ -16,8 +16,9 @@ Blocks (exit 2, reason on stderr) when the command would violate policy:
   - pip / pip3 / python -m pip / easy_install / poetry  (use uv instead)
 Anything else, or any parse error, exits 0 (fail open — never blocks real work).
 
-Register in ~/.claude/settings.json (intentionally NOT tracked by yadm — it holds
-machine-local config). Merge this into the top-level object, then restart Claude Code:
+The dotfiles' ./install registers this hook in ~/.claude/settings.json, adding
+this entry (with $HOME expanded) unless one already points at the hook. The file
+itself stays untracked because Claude Code rewrites it. Restart Claude Code after.
 
   "hooks": {
     "PreToolUse": [
