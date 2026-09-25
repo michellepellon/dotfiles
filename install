@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# ABOUTME: Installs the packages in packages/arch.txt and packages/aur.txt through
+# ABOUTME: `omarchy pkg add` and `omarchy pkg aur add`, which skip what's already installed.
+
+set -u
+
+usage() {
+  cat <<'EOF'
+install — install this repo's packages on Omarchy
+
+Usage: ./install [-h | --help]
+
+Reads package names from two lists next to this script:
+  packages/arch.txt  passed to `omarchy pkg add`
+  packages/aur.txt   passed to `omarchy pkg aur add`
+One name per line; blank lines and anything after `#` are ignored.
+A list with no names is skipped. Both commands skip installed packages
+and prompt for sudo when something is missing.
+
+Exits nonzero if omarchy isn't on PATH, a list is missing, or an
+omarchy call fails.
+EOF
+}
+
+case "${1:-}" in
+  -h | --help) usage; exit 0 ;;
+  "") ;;
+  *) printf 'install: unknown argument: %s\n\n' "$1" >&2; usage >&2; exit 2 ;;
+esac
+
+die() {
+  printf 'install: %s\n' "$1" >&2
+  exit 1
+}
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+arch_list="$here/packages/arch.txt"
+aur_list="$here/packages/aur.txt"
+
+command -v omarchy >/dev/null || die "omarchy not found on PATH; this script needs Omarchy."
+for list in "$arch_list" "$aur_list"; do
+  [ -f "$list" ] || die "package list not found: $list"
+done
+
+# read_list <file> — prints one package name per line, dropping comments, blanks and
+# surrounding whitespace. Handles a last line with no newline.
+read_list() {
+  local line
+  while IFS= read -r line || [ -n "$line" ]; do
+    line="${line%%#*}"
+    line="${line#"${line%%[![:space:]]*}"}"
+    line="${line%"${line##*[![:space:]]}"}"
+    [ -n "$line" ] && printf '%s\n' "$line"
+  done <"$1"
+}
+
+# install_list <file> <omarchy args...> — runs `omarchy <args...> <names>` unless the list is empty.
+install_list() {
+  local list="$1" names
+  shift
+  mapfile -t names < <(read_list "$list")
+  [ "${#names[@]}" -gt 0 ] || return 0
+  omarchy "$@" "${names[@]}" || die "omarchy $* failed for $list"
+}
+
+install_list "$arch_list" pkg add
+install_list "$aur_list" pkg aur add
