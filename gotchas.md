@@ -11,3 +11,6 @@ Omarchy installs its commands in both `/usr/share/omarchy/bin` and `/usr/bin`, s
 
 ## Package conflicts make ./install fail
 `omarchy pkg add` runs pacman with `--noconfirm`, which answers "no" to "remove the conflicting package?", so one conflict aborts the whole transaction and nothing installs. Before adding a package that replaces another (e.g. `aws-cli-v2` over `aws-cli`), remove the old one by hand. `./install` needs a real terminal for its sudo prompt; Claude Code's `!` prefix has none.
+
+## stow runs with --no-folding
+Without it, stow links a whole missing directory into the repo (`~/.claude/hooks` on this box, `~/.claude` itself on a fresh one), so files that apps write there land in the checkout. `install` passes `--no-folding`. On any conflict stow 2.4.1 aborts the whole run and changes nothing. `install.test.sh` runs the real stow, so every install call in it must set `HOME` to a scratch dir.
