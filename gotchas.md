@@ -8,3 +8,6 @@ Commit messages in this repo end at the body. Leave out `Co-Authored-By:` lines,
 
 ## omarchy is in /usr/bin too
 Omarchy installs its commands in both `/usr/share/omarchy/bin` and `/usr/bin`, so a stub `omarchy` on PATH doesn't shield tests if `/usr/bin` follows it. `install.test.sh` gives the script a PATH with only the stub and symlinks to the tools it needs, and runs bash by absolute path (`$BASH`).
+
+## Package conflicts make ./install fail
+`omarchy pkg add` runs pacman with `--noconfirm`, which answers "no" to "remove the conflicting package?", so one conflict aborts the whole transaction and nothing installs. Before adding a package that replaces another (e.g. `aws-cli-v2` over `aws-cli`), remove the old one by hand. `./install` needs a real terminal for its sudo prompt; Claude Code's `!` prefix has none.

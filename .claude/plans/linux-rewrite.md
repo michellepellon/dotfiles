@@ -84,6 +84,5 @@ Phases 3–6 each add to the stow list in `install`, so they run one after anoth
 
 ## State
 
-Phase 1 implemented on `feat/install-packages`: `packages/arch.txt`, `packages/aur.txt`, `install`,
-`install.test.sh`; Brewfile deleted. Live run (`./install`) pending Michelle's approval.
-Next step after the live run: phase 2 (stow layout and the claude package).
+Phase 1 done: live run installed aws-cli-v2, duckdb, uv, bitwarden, stow and mutt (2026-09-25);
+a re-run is a no-op. Next step: phase 2 (stow layout and the claude package).
