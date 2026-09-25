@@ -19,7 +19,7 @@ TOOLS="$SCRATCH/tools"
 NOSTOW="$SCRATCH/nostow"
 NOJQ="$SCRATCH/nojq"
 mkdir -p "$TOOLS" "$NOSTOW" "$NOJQ"
-for tool in dirname cat mv rm chmod; do
+for tool in dirname cat mv rm chmod mkdir; do
   ln -s "$(command -v "$tool")" "$TOOLS/$tool"
   ln -s "$(command -v "$tool")" "$NOSTOW/$tool"
   ln -s "$(command -v "$tool")" "$NOJQ/$tool"
@@ -45,6 +45,7 @@ setup() {
   SANDBOX="$(mktemp -d "$SCRATCH/case.XXXXXX")"
   cp "$REPO/install" "$SANDBOX/install"
   cp -R "$REPO/claude" "$SANDBOX/claude"
+  cp -R "$REPO/mutt" "$SANDBOX/mutt"
   mkdir -p "$SANDBOX/packages" "$SANDBOX/bin" "$SANDBOX/home" "$SANDBOX/.claude/plans"
   printf 'plan\n' >"$SANDBOX/.claude/plans/plan.md"
   printf '%s' "$1" >"$SANDBOX/packages/arch.txt"
@@ -157,10 +158,10 @@ STUB_EXIT=1 run_install
 expect_status "failing aur call exits nonzero" 1
 expect_err_contains "failure names the aur list" "aur.txt"
 
-# expect_link <description> <path under $SANDBOX/home> — passes if the path is a symlink
-# that resolves to the same path in the sandbox's claude package.
+# expect_link <description> <path under $SANDBOX/home> [package=claude] — passes if the path
+# is a symlink that resolves to the same path in that stow package of the sandbox.
 expect_link() {
-  local link="$SANDBOX/home/$2" want="$SANDBOX/claude/$2"
+  local link="$SANDBOX/home/$2" want="$SANDBOX/${3:-claude}/$2"
   if [ -L "$link" ] && [ "$(readlink -f "$link")" = "$(readlink -f "$want")" ]; then
     ok
   else
@@ -341,6 +342,32 @@ setup $'git\n' ''
 run_install --bogus
 expect_status "unknown argument exits 2" 2
 expect_calls "unknown argument makes no omarchy calls" ''
+
+# --- mutt: .muttrc is stowed, its cache dirs exist, ~/.mutt is private ---
+setup $'git\n' ''
+run_install
+expect_status "mutt: install succeeds without credentials" 0
+expect_link "stows .muttrc" .muttrc mutt
+if [ -d "$SANDBOX/home/.mutt/cache/headers" ] && [ -d "$SANDBOX/home/.mutt/cache/bodies" ]; then
+  ok
+else
+  not_ok "creates ~/.mutt/cache/headers and bodies (mutt needs the header cache dir in advance)"
+fi
+mode="$(stat -c %a "$SANDBOX/home/.mutt" 2>/dev/null)"
+if [ "$mode" = 700 ]; then ok; else not_ok "HOME/.mutt is mode 700" "got: $mode"; fi
+expect_err_contains "missing credentials gets a note" ".mutt/credentials"
+
+# --- mutt: a private credentials file means no note; a loose ~/.mutt gets tightened ---
+setup $'git\n' ''
+mkdir -p "$SANDBOX/home/.mutt"
+chmod 755 "$SANDBOX/home/.mutt"
+printf 'set imap_pass = "x"\n' >"$SANDBOX/home/.mutt/credentials"
+run_install
+expect_status "mutt: install succeeds with credentials" 0
+if ! grep -q 'credentials' "$SANDBOX/err"; then ok; else not_ok "no credentials note when the file exists" "stderr: $(cat "$SANDBOX/err")"; fi
+mode="$(stat -c %a "$SANDBOX/home/.mutt" 2>/dev/null)"
+if [ "$mode" = 700 ]; then ok; else not_ok "an existing HOME/.mutt is tightened to 700" "got: $mode"; fi
+if [ "$(cat "$SANDBOX/home/.mutt/credentials")" = 'set imap_pass = "x"' ]; then ok; else not_ok "credentials file is left untouched"; fi
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" = 0 ]
