@@ -84,18 +84,6 @@ Phases 3–6 each add to the stow list in `install`, so they run one after anoth
 
 ## State
 
-Phase 1 done: live run installed aws-cli-v2, duckdb, uv, bitwarden, stow and mutt (2026-09-25);
-a re-run is a no-op.
-
-Phase 2 implemented on `feat/stow-claude`: `claude/.claude/` holds `CLAUDE.md` and the guard hook,
-`.vimrc` is gone, and `install` ends with `stow --no-folding -d <repo> -t $HOME claude` (the
-`stow_packages` list near its top). Live stow pending Michelle's approval: the real
-`~/.claude/CLAUDE.md` must be moved aside first, or `./install` stops at the conflict.
-Next step: phase 2 review, then its live run.
-
-Phase 3 implemented on `feat/guard-hook`: the guard hook drops the `timeout` rule and blocks
-`git commit -n` (alone or bundled) and `core.hooksPath` overrides (`git -c`, `--config-env`,
-`git config` setting it); `install` ends by registering the hook in `$HOME/.claude/settings.json`
-with jq (absolute path, appended only if no PreToolUse command already ends in
-`/.claude/hooks/guard-commands.sh`). Live registration into the real `~/.claude/settings.json`
-pending Michelle's approval. Next step: phase 3 review, then its live run.
+Phases 1–3 done (2026-09-25). The guard hook is registered in the real `~/.claude/settings.json` and
+blocks in live sessions; a re-run of `./install` leaves the file byte-identical. All scripts are
+shellcheck-clean. Next step: phase 4 (tmux package).
