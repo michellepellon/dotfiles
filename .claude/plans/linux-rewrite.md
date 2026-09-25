@@ -29,18 +29,21 @@ Omarchy 4.0.4 on the target box.
      opacity/blur belong to Hyprland).
    - mutt: not installed; add `mutt` (Arch `extra`, 2.4.2) to the package list. Password stays in
      `~/.mutt/credentials`, outside the repo. (2026-09-25)
+7. **Guard hook: keep rules 1–2, drop `timeout`, and let the install script register it.** Close the
+   `git commit -n` and `git -c core.hooksPath=...` holes test-first. The install script merges the hook
+   entry into `~/.claude/settings.json` with jq only if it's missing; the file itself stays untracked
+   because Claude Code rewrites it. Add `jq` to the package list. (2026-09-25)
 
 ## Open questions (settle in this order)
 
-1. Guard hook: drop the `timeout` rule; close the `git commit -n` and `core.hooksPath` holes
-   test-first; decide how the hook gets registered in `~/.claude/settings.json`.
-2. Which Brewfile packages carry over to the Arch/AUR lists.
+1. Which Brewfile packages carry over to the Arch/AUR lists.
 
 ## Known facts
 
 - Omarchy's Ghostty config already sends Shift+Enter as CSI-u, so our tmux `S-Enter` binding is obsolete.
 - Clipboard on this box is `wl-copy`.
+- `~/.claude/CLAUDE.md` exists as a real file, so the first `stow claude` conflicts; use `--adopt` or move it first.
 
 ## State
 
-Planning. Next step: open question 1 (guard hook).
+Planning. Next step: open question 1 (Brewfile packages).
