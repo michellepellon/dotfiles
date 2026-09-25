@@ -14,3 +14,6 @@ Omarchy installs its commands in both `/usr/share/omarchy/bin` and `/usr/bin`, s
 
 ## stow runs with --no-folding
 Without it, stow links a whole missing directory into the repo (`~/.claude/hooks` on this box, `~/.claude` itself on a fresh one), so files that apps write there land in the checkout. `install` passes `--no-folding`. On any conflict stow 2.4.1 aborts the whole run and changes nothing. `install.test.sh` runs the real stow, so every install call in it must set `HOME` to a scratch dir.
+
+## Live config follows the checked-out branch
+Once stowed, `~/.claude/CLAUDE.md` and the guard hook are symlinks into this checkout. Checking out a branch or commit without `claude/` (anything before phase 2) breaks the links, and Claude Code silently starts with no global instructions. Keep `~/Work/dotfiles` on `main` or a branch cut from it; after switching, check `ls -L ~/.claude/CLAUDE.md`.
