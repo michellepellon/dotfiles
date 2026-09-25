@@ -92,3 +92,10 @@ Phase 2 implemented on `feat/stow-claude`: `claude/.claude/` holds `CLAUDE.md` a
 `stow_packages` list near its top). Live stow pending Michelle's approval: the real
 `~/.claude/CLAUDE.md` must be moved aside first, or `./install` stops at the conflict.
 Next step: phase 2 review, then its live run.
+
+Phase 3 implemented on `feat/guard-hook`: the guard hook drops the `timeout` rule and blocks
+`git commit -n` (alone or bundled) and `core.hooksPath` overrides (`git -c`, `--config-env`,
+`git config` setting it); `install` ends by registering the hook in `$HOME/.claude/settings.json`
+with jq (absolute path, appended only if no PreToolUse command already ends in
+`/.claude/hooks/guard-commands.sh`). Live registration into the real `~/.claude/settings.json`
+pending Michelle's approval. Next step: phase 3 review, then its live run.
