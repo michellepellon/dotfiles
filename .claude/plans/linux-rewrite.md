@@ -47,7 +47,7 @@ Omarchy 4.0.4 on the target box.
 - Omarchy's Ghostty config already sends Shift+Enter as CSI-u, so our tmux `S-Enter` binding is obsolete.
 - Clipboard on this box is `wl-copy`.
 - On Arch the ast-grep command is `ast-grep`, not `sg`; `CLAUDE.md` still says `sg`. Fix it.
-- `~/.claude/CLAUDE.md` exists as a real file, so the first `stow claude` conflicts; use `--adopt` or move it first.
+- `~/.claude/CLAUDE.md` exists as a real file, so the first `stow claude` conflicts. Don't use `--adopt`: it moves the home file into the repo, replacing the repo copy. Move the home file aside by hand, with Michelle's go-ahead.
 
 ## Phases
 
