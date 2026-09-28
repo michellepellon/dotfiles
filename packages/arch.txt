@@ -10,5 +10,4 @@ git
 ast-grep
 stow
 jq
-mutt
 shellcheck
