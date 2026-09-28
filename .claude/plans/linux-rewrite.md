@@ -60,8 +60,6 @@ Omarchy 4.0.4 on the target box.
 
 ## Known facts
 
-- Omarchy's Ghostty config already sends Shift+Enter as CSI-u, so our tmux `S-Enter` binding is obsolete.
-- Clipboard on this box is `wl-copy`.
 - On Arch the ast-grep command is `ast-grep`, not `sg`; `claude/.claude/CLAUDE.md` says `ast-grep`.
 - `~/.claude/CLAUDE.md` exists as a real file, so the first `stow claude` conflicts. Don't use `--adopt`: it moves the home file into the repo, replacing the repo copy. Move the home file aside by hand, with Michelle's go-ahead.
 
@@ -92,16 +90,22 @@ without Michelle's go-ahead: tests use scratch dirs, and each phase's live run i
    package is added. Originally: layer only settings Omarchy doesn't cover, via two `config-file` includes
    (decision 2). First test whether Omarchy's nested theme include loads before our overrides.
    Add `ghostty` to the stow list. ~20 LOC.
-6. **mutt package.** Move `.muttrc` into `mutt/`. Check whether mutt creates `~/.mutt/cache` itself; if not,
+6. **mutt.** Built in PR #9, then dropped in PR #10 (decision 11). Originally: move `.muttrc` into `mutt/`. Check whether mutt creates `~/.mutt/cache` itself; if not,
    `install` creates it. Michelle writes `~/.mutt/credentials` by hand; it never enters the repo.
    Add `mutt` to the stow list. ~20 LOC.
-7. **Wrap-up.** Remove leftover Mac files, rewrite the `gotchas.md` entry now that the rewrite has landed,
+7. **Wrap-up.** Done (2026-09-27). Remove leftover Mac files, rewrite the `gotchas.md` entry now that the rewrite has landed,
    update memory, and mark this plan done. ~20 LOC.
 
 Phases 3–6 each add to the stow list in `install`, so they run one after another, not in parallel.
 
 ## State
 
-Phases 1–6 done (2026-09-27). Phases 4–6 turned into dropping tmux, Ghostty and mutt configs
-(decisions 9–11); the repo now holds only the claude package, the package lists and `install`.
-Next step: phase 7 (wrap-up).
+**Complete (2026-09-27).** All seven phases landed (PRs #4–#10, plus this wrap-up). The repo holds:
+
+- `claude/`: stow package for `~/.claude/CLAUDE.md` and the guard hook.
+- `packages/arch.txt`, `packages/aur.txt`: packages `install` feeds to `omarchy pkg`.
+- `install` and `install.test.sh`: install packages, stow `claude` with `--no-folding`, register
+  the guard hook in `~/.claude/settings.json`. Safe to re-run.
+
+tmux, Ghostty and Hyprland run on Omarchy's defaults. On a new machine: clone to `~/Work/dotfiles`,
+run `./install` in a real terminal, and move aside any file stow reports as a conflict.
