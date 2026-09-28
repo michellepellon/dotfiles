@@ -26,8 +26,7 @@ Omarchy 4.0.4 on the target box.
 6. **Port tmux, Ghostty and mutt; drop vim.** Neovim 0.12 ships with Omarchy, so `.vimrc` goes.
    - tmux: superseded by decision 9.
    - Ghostty: superseded by decision 10.
-   - mutt: not installed; add `mutt` (Arch `extra`, 2.4.2) to the package list. Password stays in
-     `~/.mutt/credentials`, outside the repo. (2026-09-25)
+   - mutt: superseded by decision 11.
 7. **Guard hook: keep rules 1–2, drop `timeout`, and let the install script register it.** Close the
    `git commit -n` and `git -c core.hooksPath=...` holes test-first. The install script merges the hook
    entry into `~/.claude/settings.json` with jq only if it's missing; the file itself stays untracked
@@ -53,6 +52,11 @@ Omarchy 4.0.4 on the target box.
     (opacity, blur, decorations) or the Omarchy theme (colors), or were superseded (Shift+Enter,
     `term`, zsh shell integration). None of the remaining preferences carry over. `ghostty` stays in
     `packages/arch.txt`. (2026-09-25)
+
+11. **mutt: dropped.** Michelle won't use mutt on this box. `.muttrc`, the `mutt` stow package, the
+    `~/.mutt` prep in `install` and `mutt` in `packages/arch.txt` are removed; the live `~/.muttrc` link
+    and empty `~/.mutt` dirs were unstowed and deleted. The mutt pacman package is Michelle's to remove
+    (`omarchy pkg drop mutt`). (2026-09-27)
 
 ## Known facts
 
@@ -98,8 +102,6 @@ Phases 3–6 each add to the stow list in `install`, so they run one after anoth
 
 ## State
 
-Phases 1–6 done in the repo (2026-09-25). Phase 6: `.muttrc` moved into the `mutt` stow package;
-`install` creates `~/.mutt/cache/{headers,bodies}` (mutt's manual: the header cache dir must exist
-in advance), keeps `~/.mutt` at mode 700, and notes a missing `~/.mutt/credentials`.
-Live run pending Michelle: `./install`, then write `~/.mutt/credentials` by hand.
+Phases 1–6 done (2026-09-27). Phases 4–6 turned into dropping tmux, Ghostty and mutt configs
+(decisions 9–11); the repo now holds only the claude package, the package lists and `install`.
 Next step: phase 7 (wrap-up).
