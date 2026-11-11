@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# ABOUTME: Tests for install — runs it against scratch package lists with a stub omarchy
-# ABOUTME: and real stow into a scratch HOME. Run: ./install.test.sh (nonzero if any fail).
+# ABOUTME: Tests for install — runs it against scratch package lists with stub omarchy, brew and
+# ABOUTME: uname, and real stow into a scratch HOME. Run: ./install.test.sh (nonzero if any fail).
 
 set -u
 REPO="$(cd "$(dirname "$0")" && pwd)"
@@ -15,14 +15,23 @@ fail=0
 # stow is real; every run sets HOME to a scratch dir, so it only links into that.
 # jq is real too and only ever edits $SANDBOX/home/.claude/settings.json.
 # NOSTOW is TOOLS without stow; NOJQ is TOOLS without jq.
+# uname is a stub that prints $STUB_OS (default Linux), so the suite covers both the
+# Omarchy and the macOS path whichever system it runs on.
 TOOLS="$SCRATCH/tools"
 NOSTOW="$SCRATCH/nostow"
 NOJQ="$SCRATCH/nojq"
 mkdir -p "$TOOLS" "$NOSTOW" "$NOJQ"
-for tool in dirname cat mv rm chmod; do
+for tool in dirname cat cp mv rm; do
   ln -s "$(command -v "$tool")" "$TOOLS/$tool"
   ln -s "$(command -v "$tool")" "$NOSTOW/$tool"
   ln -s "$(command -v "$tool")" "$NOJQ/$tool"
+done
+for dir in "$TOOLS" "$NOSTOW" "$NOJQ"; do
+  cat >"$dir/uname" <<EOF
+#!$BASH
+printf '%s\n' "\${STUB_OS:-Linux}"
+EOF
+  chmod +x "$dir/uname"
 done
 ln -s "$(command -v stow)" "$TOOLS/stow"
 ln -s "$(command -v stow)" "$NOJQ/stow"
@@ -57,6 +66,26 @@ EOF
   chmod +x "$SANDBOX/bin/omarchy"
   : >"$SANDBOX/calls"
 }
+
+# setup_mac <brew-list-contents> <cask-list-contents> — like setup, but for the macOS path:
+# no arch/aur lists and no omarchy; instead packages/brew.txt, packages/cask.txt and a stub
+# brew that appends "brew $*" to $SANDBOX/calls and exits $STUB_EXIT. Run install after it
+# with STUB_OS=Darwin.
+setup_mac() {
+  setup '' ''
+  rm "$SANDBOX/packages/arch.txt" "$SANDBOX/packages/aur.txt" "$SANDBOX/bin/omarchy"
+  printf '%s' "$1" >"$SANDBOX/packages/brew.txt"
+  printf '%s' "$2" >"$SANDBOX/packages/cask.txt"
+  cat >"$SANDBOX/bin/brew" <<EOF
+#!$BASH
+printf 'brew %s\n' "\$*" >>"$SANDBOX/calls"
+exit "\${STUB_EXIT:-0}"
+EOF
+  chmod +x "$SANDBOX/bin/brew"
+}
+
+# file_mode <file> — prints the octal permission bits (GNU stat, else BSD stat).
+file_mode() { stat -c %a "$1" 2>/dev/null || stat -f %Lp "$1"; }
 
 # run_install [args...] — runs the sandbox copy with the stub first on PATH and HOME set
 # to $SANDBOX/home; sets $status, $out and $err.
@@ -156,6 +185,83 @@ setup '' $'foo-bin\n'
 STUB_EXIT=1 run_install
 expect_status "failing aur call exits nonzero" 1
 expect_err_contains "failure names the aur list" "aur.txt"
+
+# --- macOS: brew.txt goes to `brew install`, cask.txt to `brew install --cask` ---
+setup_mac $'# formulae\ngit\n  stow  \njq # needed by the hook\n' $'# casks\nghostty\nbitwarden'
+STUB_OS=Darwin run_install
+expect_status "macOS: brew and cask lists" 0
+expect_calls "macOS: calls brew install then brew install --cask" \
+  $'brew install git stow jq\nbrew install --cask ghostty bitwarden'
+
+# --- macOS: a comment-only list is skipped ---
+setup_mac $'git\n' $'# no casks\n'
+STUB_OS=Darwin run_install
+expect_status "macOS: empty cask list" 0
+expect_calls "macOS: comment-only cask list skips the cask call" 'brew install git'
+
+# --- macOS: the real repo lists feed the real package names ---
+setup_mac '' ''
+cp "$REPO/packages/brew.txt" "$REPO/packages/cask.txt" "$SANDBOX/packages/"
+STUB_OS=Darwin run_install
+expect_status "macOS: repo lists" 0
+expect_calls "macOS: repo brew.txt and cask.txt pass their packages" \
+  $'brew install awscli duckdb uv tmux git ast-grep stow jq shellcheck gh\nbrew install --cask bitwarden ghostty'
+
+# --- macOS: never needs omarchy or the Arch lists, and stows and registers the hook ---
+setup_mac $'git\n' ''
+STUB_OS=Darwin run_install
+expect_status "macOS: runs without omarchy, arch.txt or aur.txt" 0
+if [ -L "$SANDBOX/home/.claude/CLAUDE.md" ]; then ok; else not_ok "macOS: stows CLAUDE.md"; fi
+if jq -e '.hooks.PreToolUse[0].matcher == "Bash"' "$SANDBOX/home/.claude/settings.json" >/dev/null 2>&1; then
+  ok
+else
+  not_ok "macOS: registers the guard hook"
+fi
+
+# --- macOS: brew missing from PATH ---
+setup_mac $'git\n' ''
+rm "$SANDBOX/bin/brew"
+STUB_OS=Darwin run_install
+expect_status "macOS: missing brew exits nonzero" 1
+expect_err_contains "macOS: missing brew names brew" "brew not found"
+
+# --- macOS: missing list files ---
+setup_mac $'git\n' ''
+rm "$SANDBOX/packages/brew.txt"
+STUB_OS=Darwin run_install
+expect_status "macOS: missing brew.txt exits nonzero" 1
+expect_err_contains "macOS: missing brew.txt names the file" "packages/brew.txt"
+expect_calls "macOS: missing brew.txt makes no brew calls" ''
+
+setup_mac $'git\n' ''
+rm "$SANDBOX/packages/cask.txt"
+STUB_OS=Darwin run_install
+expect_status "macOS: missing cask.txt exits nonzero" 1
+expect_err_contains "macOS: missing cask.txt names the file" "packages/cask.txt"
+expect_calls "macOS: missing cask.txt makes no brew calls" ''
+
+# --- macOS: brew failure propagates, naming the list ---
+setup_mac $'git\n' $'ghostty\n'
+STUB_OS=Darwin STUB_EXIT=1 run_install
+expect_status "macOS: failing brew exits nonzero" 1
+expect_err_contains "macOS: failure names the brew list" "brew.txt"
+expect_calls "macOS: stops after the brew failure" 'brew install git'
+
+# --- macOS: a missing stow points at brew.txt ---
+setup_mac $'git\n' ''
+HOME="$SANDBOX/home" PATH="$SANDBOX/bin:$NOSTOW" STUB_OS=Darwin "$BASH" "$SANDBOX/install" >"$SANDBOX/out" 2>"$SANDBOX/err"
+status=$?
+err="$(cat "$SANDBOX/err")"
+expect_status "macOS: missing stow exits nonzero" 1
+expect_err_contains "macOS: missing stow points at brew.txt" "packages/brew.txt"
+
+# --- any other system is refused before anything runs ---
+setup $'git\n' ''
+STUB_OS=FreeBSD run_install
+expect_status "unsupported system exits nonzero" 1
+expect_err_contains "unsupported system names it" "FreeBSD"
+expect_calls "unsupported system makes no package calls" ''
+if [ ! -e "$SANDBOX/home/.claude" ]; then ok; else not_ok "unsupported system stows nothing"; fi
 
 # expect_link <description> <path under $SANDBOX/home> — passes if the path is a symlink
 # that resolves to the same path in the sandbox's claude package.
@@ -282,7 +388,7 @@ expect_settings "keeps other keys and hooks, appends the hook" "{
     \"Stop\": [ { \"hooks\": [ { \"type\": \"command\", \"command\": \"notify-send done\" } ] } ]
   }
 }"
-mode="$(stat -c %a "$(settings_file)")"
+mode="$(file_mode "$(settings_file)")"
 if [ "$mode" = 640 ]; then ok; else not_ok "keeps the file's mode" "expected 640, got $mode"; fi
 expect_no_temp "leaves no temp file behind"
 
