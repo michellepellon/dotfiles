@@ -1,7 +1,13 @@
 # Gotchas
 
-## Linux-only, layered on Omarchy
-These dotfiles target Omarchy (Arch + Hyprland) only; macOS support is gone. Omarchy owns most app configs (`~/.config/tmux`, `~/.config/ghostty`, `~/.config/hypr`), and tmux and Ghostty run on its defaults unchanged. Before adding a config here, check what Omarchy already sets, and test in isolation (`tmux -L scratch -f ...`), never by overwriting `$HOME`.
+## Omarchy first; macOS gets packages and Claude config only
+These dotfiles target Omarchy (Arch + Hyprland). On a Mac, `./install` installs `packages/brew.txt` and `packages/cask.txt` with Homebrew, stows `claude` and registers the guard hook; no app configs are kept for macOS. A package added for one system needs its twin in the other system's list (names differ: `aws-cli-v2` is `awscli` in Homebrew).
+
+## install must run on bash 3.2 and BSD tools
+macOS ships bash 3.2 and BSD userland, and `install` runs under them: no `mapfile`, no `chmod --reference`, no `stat -c`. `install.test.sh` stubs `uname` (`STUB_OS`), so both paths are tested on either system, but only a run on the real system proves the tools behave. Run the suite on both before merging a change to `install`.
+
+## Omarchy owns most app configs
+Omarchy owns most app configs (`~/.config/tmux`, `~/.config/ghostty`, `~/.config/hypr`), and tmux and Ghostty run on its defaults unchanged. Before adding a config here, check what Omarchy already sets, and test in isolation (`tmux -L scratch -f ...`), never by overwriting `$HOME`.
 
 ## No Co-Authored-By trailers
 Commit messages in this repo end at the body. Leave out `Co-Authored-By:` lines, even if your tool adds them by default.
