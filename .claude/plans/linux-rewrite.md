@@ -58,6 +58,12 @@ Omarchy 4.0.4 on the target box.
     and empty `~/.mutt` dirs were unstowed and deleted. The mutt pacman package is Michelle's to remove
     (`omarchy pkg drop mutt`). (2026-09-27)
 
+12. **macOS is back, for packages and Claude config only.** Amends decision 1. `install` picks its
+    lists by `uname -s`: `packages/brew.txt` → `brew install` and `packages/cask.txt` →
+    `brew install --cask` on Darwin; the Omarchy path is unchanged. The stow and hook steps are shared.
+    `install` stays runnable on macOS's bash 3.2 and BSD tools. No tmux, Ghostty or other app configs
+    return. `gh` is in `brew.txt` because a Mac has no mise. (2026-11-11)
+
 ## Known facts
 
 - On Arch the ast-grep command is `ast-grep`, not `sg`; `claude/.claude/CLAUDE.md` says `ast-grep`.
@@ -106,6 +112,9 @@ Phases 3–6 each add to the stow list in `install`, so they run one after anoth
 - `packages/arch.txt`, `packages/aur.txt`: packages `install` feeds to `omarchy pkg`.
 - `install` and `install.test.sh`: install packages, stow `claude` with `--no-folding`, register
   the guard hook in `~/.claude/settings.json`. Safe to re-run.
+
+Since 2026-11-11 (decision 12) `install` also runs on macOS, reading `packages/brew.txt` and
+`packages/cask.txt`.
 
 tmux, Ghostty and Hyprland run on Omarchy's defaults. On a new machine: clone to `~/Work/dotfiles`,
 run `./install` in a real terminal, and move aside any file stow reports as a conflict.
