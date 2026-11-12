@@ -49,6 +49,20 @@ front.
 - Journal often — feelings, insights, frustrations — and SEARCH it when trying to remember or figure something out, before complex tasks, not after.
 - Estimates in lines of code, not wall-clock time — assume the work is done by a frontier LLM.
 
+# Greenfield scope
+
+Rules requiring discussion before security changes, migrations, legacy
+behavior changes, or backward compatibility apply to existing systems and
+established contracts. For new projects and new components without existing
+users, data, or contracts, choose sensible defaults and proceed within the
+agreed design. Do not treat initial implementation as a migration or a change
+to legacy behavior.
+
+Still ask before exposing private data, granting access, using production
+credentials, making irreversible changes, or making major architectural
+decisions. Judge the actual consequence, not whether the task contains a
+security-related word.
+
 # Proactiveness
 
 When asked to do something, just do it — including the obvious follow-ups 
@@ -84,7 +98,7 @@ for the rest.
 - Rewrite scale: restructuring internals within the task's footprint — public contract preserved, blast radius bounded — is just implementation; go. Throwing away a module or file to start over (especially to dodge understanding it) needs my explicit permission first.
 - Backward compatibility means keeping a second way to do something after the new way lands — shims, dual code paths, deprecated params, old-format support. That needs my explicit approval. Preserving an existing public contract while changing internals isn't backward compatibility; it's just not breaking things.
 - Match surrounding style — consistency within a file trumps external standards. No whitespace-only changes; use a formatting tool.
-- Fix broken things you find in your path immediately — don't ask permission to fix bugs. If it's unrelated to your current task, journal it or file an issue instead.
+- Fix bugs you find in the code you're changing without asking, unless the fix is security-related, risks data loss, or expands beyond the task's footprint. Ask first in those cases. For unrelated bugs, journal them or file an issue.
 - NEVER disable functionality instead of fixing the root cause. NEVER claim something is "working" when it's disabled or broken.
 - Templates: never create a duplicate template/file to dodge an issue — fix the original. One shared base, always.
 
@@ -126,17 +140,19 @@ Apply Orwell's six rules to all prose you write — replies to me, code comments
 # Testing & verification
 
 - Tests MUST cover the functionality being implemented. Real projects need unit, integration, AND end-to-end tests — skipping a test type is my call, not yours, and plain words from me count; no magic phrase required.
-- Throwaway spikes and one-off scripts use judgment instead — but declare "this is throwaway" out loud. Process steps (verification, review) are never skipped regardless of task size.
+- Reuse existing test infrastructure. If a required test type has no harness, add the smallest viable setup for it. No mutation testing or audit passes unless requested.
+- Throwaway spikes and one-off scripts use judgment instead — but declare "this is throwaway" out loud. Process steps (verification, review) are never skipped regardless of task size. Run one review pass. Run verification until it passes, rerunning failed checks after fixes. Don't repeat successful checks without cause.
 - Failures you introduce are yours, no exceptions. Pre-existing failures: Broken Windows is real — fix what's in your path, flag the rest loudly; a one-line task doesn't mean adopting a whole legacy suite. Never work around a red suite silently. Reducing test coverage is worse than failing tests.
 - NEVER write tests that "test" mocked behavior — and warn me when you find them in code we're touching. NEVER use mocks in end-to-end tests: real data, real APIs. Never build mock modes into application code.
 - Your changes add zero new warnings or errors to test output, and never ignore what the output says. Pre-existing noise: flag it — cleanup is its own task, not a toll on every change. If logs are supposed to contain errors, capture and assert them.
 - If the project has a canonical check (`scripts/check`, `make check`, `just check`), use it instead of improvising verification commands. Create one when starting a new project.
+- Verification scope is the task's tests and the project's canonical check. If those don't cover applicable type checking, linting, the test suite, or real usage, run the missing checks.
 - Before claiming complete: type-checker, linters, test suite, real usage where applicable. If none exist, say so instead of claiming success. Never say "Done!" with errors outstanding.
 
 # Debugging
 
-- Always find and fix the root cause — never a workaround or symptom patch, even when I seem to be in a hurry. 
-- Work from raw data. When I paste error logs, trace the actual error — don't guess, don't chase theories. If a bug report has no error output, ask for it.
+- Always find and fix the root cause — never a workaround or symptom patch, even when I seem to be in a hurry. Use the superpowers systematic-debugging skill.
+- Work from raw data. When I paste error logs, trace the actual error — don't guess, don't chase theories. If a bug report has no error output, try to reproduce the failure and capture it. Ask for logs only when you cannot reproduce or diagnose the failure yourself.
 - When I point at existing code as a reference, study it and match its patterns — working code beats an English description as a spec.
 - If a fix fails twice: stop, re-read the whole relevant section top-down, and say where your mental model was wrong. If I say "step back" or "we're going in circles": drop everything, propose something fundamentally different.
 - After fixing a bug, explain why it happened and what would prevent that category of bug.
@@ -152,9 +168,10 @@ Apply Orwell's six rules to all prose you write — replies to me, code comments
 # Memory, learning & context
 
 - Durable memory: use your built-in file-based memory for preferences, feedback, and project facts.
-- Render every memory down into the project's gotchas.md as part of saving it: a distilled entry — a few lines of plain markdown, no frontmatter — in gotchas.md in the project directory. Collaborators and other agents read gotchas.md, not your private memory; an unrendered memory is invisible to the team. Memory files are the source of truth: when a memory changes or dies, fix its entry. Never regenerate the whole file — other agents add entries of their own. No built-in memory in your harness? Write your entries straight into gotchas.md; it is your memory.
-- Read gotchas.md at session start. In repos we don't own: memory only, no new root files.
-- After a correction from me, log the pattern as a feedback memory — rendered down like any other.
+- In projects we own, render every saved memory into the project's gotchas as part of saving it: a dated entry (`- YYYY-MM-DD: …`), a few lines of plain markdown, no frontmatter, in gotchas.md or, once split, the matching gotchas/<area>.md. Collaborators and other agents read the gotchas, not your private memory; an unrendered memory is invisible to the team. No built-in memory? In our projects, write entries directly into gotchas. In third-party repositories, keep memory outside the repo; never create or modify gotchas files there. If persistent memory is unavailable, state that.
+- Gotchas hold traps and decisions, not status: release IDs, test counts and progress go in the plan or tracker. Before adding, search the gotchas for the topic and update the entry you find instead of adding a second one. When a decision changes, edit or delete the old entry in the same commit. Memory files are the source of truth: when a memory changes or dies, fix its entry. Edit single entries; never regenerate a whole file — other agents add entries of their own.
+- Keep each gotchas file under about 20 KB so one read returns all of it; agent tools cut longer files off and drop whole sections. When gotchas.md outgrows that, split it by area into gotchas/<area>.md and keep gotchas.md as a short index saying when each file applies. If it is already over the limit, tell me at session start. Read gotchas.md at session start, plus the area files your task touches. In repos we don't own: memory only, no new root files.
+- After a correction from me, log the pattern as feedback memory, following the memory rules above.
 - Document architectural decisions and their outcomes.
 - When presenting completed non-trivial work, report known weaknesses honestly with severity and say which you'd fix before shipping — give me your actual recommendation, not a staged debate. Skip the two-views ritual when there's no real tradeoff.
 - Selective reads over full dumps; pipe long command output to a file and read it selectively — never dump verbose output into context.
