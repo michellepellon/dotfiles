@@ -88,11 +88,9 @@ Omarchy 4.0.4 on the target box.
     calls unless the social feed is set up, and `mcpServers` is not a `settings.json` key. The other
     candidate, `obra/private-journal-mcp`, needs Node and builds from source on first run. On Omarchy, which
     has no package for pulse, it is installed by hand from the release binary, and `install` stops at the
-    MCP step until it is on PATH; `gotchas.md` has the steps and digests. (2026-11-11)
-
-## Open
-
-- **chronicle.** `CLAUDE.md` says to log activity with chronicle, which no machine has. Install it or cut the line.
+    MCP step until it is on PATH; `gotchas.md` has the steps and digests. The line telling the agent to log
+    activity with chronicle is cut from `CLAUDE.md`: no machine had chronicle, and the journal and git
+    history record the same things. (2026-11-11)
 
 ## Known facts
 
@@ -147,7 +145,8 @@ Since 2026-11-11 (decision 12) `install` also runs on macOS, reading `packages/b
 `packages/cask.txt`. Decisions 13–17 added, on both systems: Claude Code plugins from
 `packages/claude-plugins.txt`, MCP servers from `packages/claude-mcp.txt`, a stub `~/.claude/local.md`,
 and the `uv` skill in the `claude` package.
-After pulling these, re-run `./install` on each machine. Next step: settle the item under Open.
+After pulling these, re-run `./install` on each machine; on Omarchy put pulse on PATH first.
+Nothing is open.
 
 tmux, Ghostty and Hyprland run on Omarchy's defaults. On a new machine: clone to `~/Work/dotfiles`,
 run `./install` in a real terminal, and move aside any file stow reports as a conflict.
