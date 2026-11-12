@@ -10,7 +10,7 @@ macOS ships bash 3.2 and BSD userland, and `install` runs under them: no `mapfil
 Omarchy owns most app configs (`~/.config/tmux`, `~/.config/ghostty`, `~/.config/hypr`), and tmux and Ghostty run on its defaults unchanged. Before adding a config here, check what Omarchy already sets, and test in isolation (`tmux -L scratch -f ...`), never by overwriting `$HOME`.
 
 ## No Co-Authored-By trailers
-Commit messages in this repo end at the body. Leave out `Co-Authored-By:` lines, even if your tool adds them by default.
+Commit messages in this repo end at the body. Leave out `Co-Authored-By:` lines, even if your tool adds them by default. For Claude Code the repo's `.claude/settings.json` enforces it: `attribution.commit` is `""`, so sessions started here are never told to add the trailer. Other tools still need the rule.
 
 ## omarchy is in /usr/bin too
 Omarchy installs its commands in both `/usr/share/omarchy/bin` and `/usr/bin`, so a stub `omarchy` on PATH doesn't shield tests if `/usr/bin` follows it. `install.test.sh` gives the script a PATH with only the stub and symlinks to the tools it needs, and runs bash by absolute path (`$BASH`).
@@ -29,3 +29,21 @@ In Claude Code's prompt, a leading `!` runs the command in the session. In a rea
 
 ## The guard hook blocks text that mentions bypass flags
 Rule 1 blocks any Bash command containing `git` plus `--no-veri`/`--no-hooks`/`--no-pre-commit-hook`, even inside quotes. When a commit message, PR body or edit script mentions those flags, write the text to a file (Write tool) and pass the file: `git commit -F`, `gh pr create --body-file`, `python3 script.py`. No flag reaches git, so this isn't a bypass.
+
+## Claude Code plugins come from packages/claude-plugins.txt
+One `<plugin> <marketplace>` pair per line. `./install` runs `claude plugin install <plugin> --marketplace <marketplace> --scope user` for each, every time: the command exits 0 when the plugin is already installed and adds a marketplace it doesn't know yet, so `install` keeps no state and reads no JSON. It never passes `-y`. A plugin whose marketplace declares a command to run then stops and shows that command, which is the point: a person must read it. The official marketplace pins each plugin to a commit, so it can trail the author's own marketplace.
+
+## Try claude CLI changes in a scratch config first
+`CLAUDE_CONFIG_DIR=<scratch dir> claude plugin ...` (or `claude mcp ...`) gives the CLI its own `settings.json`, `.claude.json` and `plugins/`, so nothing touches `~/.claude`. A fresh config knows no marketplace, not even the official one. `./install` meets that state on a machine where Claude Code has never run, which is why it passes `--marketplace`.
+
+## ~/.claude/local.md is per machine
+`CLAUDE.md` ends with `@~/.claude/local.md`. Facts about one machine (OS, shell, installed tools) go in that file, never in `CLAUDE.md`, which every machine shares. `./install` creates a stub when the file is missing and never edits an existing one. The dotfiles don't track it.
+
+## Skills in the claude package; ~/.claude/skills stays a real directory
+`claude/.claude/skills/uv/SKILL.md` is a copy from harperreed/dotfiles, so it carries no ABOUTME lines; update it by copying again. Claude Code keeps its own files under `~/.claude/skills` (`synced/`), which is one more reason stow runs with `--no-folding`: only `SKILL.md` is a link.
+
+## MCP servers come from packages/claude-mcp.txt
+One `<name> <command> [args...]` line per server. `./install` registers each with `claude mcp add --scope user <name> -- <command> [args...]`, but only after `claude mcp get <name>` shows the name is free: a second `add` of the same name fails. User-scope servers live in `~/.claude.json`. `mcpServers` is not a `settings.json` key, whatever a tool's README says. The command must be on PATH first, or `./install` stops. A registered server is never updated: after changing its line, run `claude mcp remove <name> -s user`, then `./install`.
+
+## pulse is the journal, and Omarchy has no package for it
+`CLAUDE.md` tells the agent to journal; pulse (`2389-research/pulse`) is the tool. It keeps Markdown under `~/.private-journal/`, and its search is a plain substring match. macOS gets it from `brew.txt`, out of a third-party tap. On Omarchy put the Linux release binary on PATH by hand. Never add the AUR's `pulse-bin` to `aur.txt`: that is a different program, a network monitor.

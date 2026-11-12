@@ -64,6 +64,36 @@ Omarchy 4.0.4 on the target box.
     `install` stays runnable on macOS's bash 3.2 and BSD tools. No tmux, Ghostty or other app configs
     return. `gh` is in `brew.txt` because a Mac has no mise. (2026-11-11)
 
+13. **Claude Code plugins live in a text list.** Extends decision 5. `packages/claude-plugins.txt` holds one
+    `<plugin> <marketplace>` pair per line, and `install` runs
+    `claude plugin install <plugin> --marketplace <marketplace> --scope user` for each. The command is safe to
+    repeat and adds a marketplace it doesn't know, so `install` keeps no state. It never passes `-y`. The list
+    starts with `superpowers` (`CLAUDE.md` names its skills) and `duckdb-skills`, both from
+    `anthropics/claude-plugins-official`. Checked in a scratch `CLAUDE_CONFIG_DIR` first. (2026-11-11)
+14. **Machine facts live in `~/.claude/local.md`, outside the repo.** `CLAUDE.md` now serves Omarchy and a Mac,
+    so it ends with `@~/.claude/local.md`. `install` creates a stub when the file is missing and never edits an
+    existing one. (2026-11-11)
+15. **Skills ship in the `claude` stow package.** The first is `claude/.claude/skills/uv/SKILL.md`, copied from
+    harperreed/dotfiles, because `CLAUDE.md` points at "the uv skill". (2026-11-11)
+16. **This repo's `.claude/settings.json` turns off commit attribution.** It sets `attribution.commit` to `""`
+    at project scope, so Claude Code is never told to add a `Co-Authored-By` trailer here. `gotchas.md` keeps
+    the rule for other tools. The global `~/.claude/settings.json` is unchanged. (2026-11-11)
+
+17. **pulse is the journal; MCP servers live in a text list.** `CLAUDE.md` tells the agent to journal, so the
+    journal tool is pulse (`2389-research/pulse`, a Go binary with an MCP server). `packages/claude-mcp.txt`
+    holds one `<name> <command> [args...]` line per server; `install` registers each with
+    `claude mcp add --scope user` unless `claude mcp get <name>` already finds it, and stops if the command
+    isn't on PATH. macOS gets pulse from `brew.txt` (`2389-research/tap/pulse`). Facts checked on 2026-11-11:
+    its `search_journal` is a substring match (nothing in the source builds embeddings), it makes no network
+    calls unless the social feed is set up, and `mcpServers` is not a `settings.json` key. The other
+    candidate, `obra/private-journal-mcp`, needs Node and builds from source on first run. (2026-11-11)
+
+## Open
+
+- **pulse on Omarchy.** No package exists, so `install` stops at the MCP step there until `pulse` is on PATH.
+  Choose: keep the hand install, have `install` fetch the release binary, or use mise.
+- **chronicle.** `CLAUDE.md` says to log activity with chronicle, which no machine has. Install it or cut the line.
+
 ## Known facts
 
 - On Arch the ast-grep command is `ast-grep`, not `sg`; `claude/.claude/CLAUDE.md` says `ast-grep`.
@@ -114,7 +144,10 @@ Phases 3–6 each add to the stow list in `install`, so they run one after anoth
   the guard hook in `~/.claude/settings.json`. Safe to re-run.
 
 Since 2026-11-11 (decision 12) `install` also runs on macOS, reading `packages/brew.txt` and
-`packages/cask.txt`.
+`packages/cask.txt`. Decisions 13–17 added, on both systems: Claude Code plugins from
+`packages/claude-plugins.txt`, MCP servers from `packages/claude-mcp.txt`, a stub `~/.claude/local.md`,
+and the `uv` skill in the `claude` package.
+After pulling these, re-run `./install` on each machine. Next step: settle the two items under Open.
 
 tmux, Ghostty and Hyprland run on Omarchy's defaults. On a new machine: clone to `~/Work/dotfiles`,
 run `./install` in a real terminal, and move aside any file stow reports as a conflict.
