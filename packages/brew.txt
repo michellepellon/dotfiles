@@ -10,3 +10,4 @@ stow
 jq
 shellcheck
 gh # on Omarchy gh comes from mise; a Mac has no mise
+2389-research/tap/pulse # journal MCP server, from a third-party tap; no Arch package exists
