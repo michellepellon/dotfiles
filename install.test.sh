@@ -23,7 +23,7 @@ TOOLS="$SCRATCH/tools"
 NOSTOW="$SCRATCH/nostow"
 NOJQ="$SCRATCH/nojq"
 mkdir -p "$TOOLS" "$NOSTOW" "$NOJQ"
-for tool in dirname cat cp mv rm; do
+for tool in dirname cat cp mv rm mktemp rmdir; do
   ln -s "$(command -v "$tool")" "$TOOLS/$tool"
   ln -s "$(command -v "$tool")" "$NOSTOW/$tool"
   ln -s "$(command -v "$tool")" "$NOJQ/$tool"
@@ -587,6 +587,13 @@ chmod +x "$SANDBOX/bin/cat"
 run_install
 expect_status "unwritable local.md exits nonzero" 1
 expect_err_contains "unwritable local.md names the file" "could not write $(local_file)"
+# The shell makes the file before cat runs. Left behind empty, it would pass for a local.md
+# that is "already there" on every later run.
+if [ ! -e "$(local_file)" ] && [ ! -L "$(local_file)" ]; then
+  ok
+else
+  not_ok "unwritable local.md leaves no file behind" "found: $(local_file)"
+fi
 
 # --- the stowed CLAUDE.md imports the very path install writes the stub to ---
 if grep -qxF '@~/.claude/local.md' "$REPO/claude/.claude/CLAUDE.md"; then
@@ -610,6 +617,15 @@ run_install
 expect_status "parses the plugin list" 0
 expect_claude_calls "plugin list skips comments/blanks, trims whitespace and trailing comments" \
   $'plugin install superpowers --marketplace anthropics/claude-plugins-official --scope user\nplugin install formatter --marketplace someone/their-plugins --scope user\nplugin install last-one --marketplace some/where --scope user'
+
+# --- lists: a `#` starts a comment only at the start of a line or after whitespace ---
+# A marketplace may pin a ref as owner/repo#ref, so a `#` inside a word has to survive.
+setup $'git\n' ''
+write_plugin_list $'pinned acme/plugins#v1.2.0\nplain acme/plugins # a comment\n#whole-line comment\n'
+run_install
+expect_status "plugin list with a pinned marketplace" 0
+expect_claude_calls "a # inside a word is kept; a # after whitespace starts a comment" \
+  $'plugin install pinned --marketplace acme/plugins#v1.2.0 --scope user\nplugin install plain --marketplace acme/plugins --scope user'
 
 # --- plugins: the real repo list feeds the real plugins ---
 setup $'git\n' ''
@@ -685,6 +701,20 @@ case "$out" in
 esac
 expect_err_contains "claude's stderr comes through" "run this for superpowers? "
 
+# --- plugins: each word reaches claude as an argument of its own ---
+# The usual stub logs "$*", which can't tell two arguments from one that holds a space.
+# This one logs a word per line.
+setup $'git\n' ''
+write_plugin_list $'superpowers anthropics/claude-plugins-official\n'
+cat >"$SANDBOX/bin/claude" <<EOF
+#!$BASH
+printf '%s\n' "\$@" >>"$SANDBOX/claude-calls"
+EOF
+run_install
+expect_status "plugin install arguments" 0
+expect_claude_calls "plugin install gets one word per argument" \
+  $'plugin\ninstall\nsuperpowers\n--marketplace\nanthropics/claude-plugins-official\n--scope\nuser'
+
 # --- MCP: a server no one registered is added, once `claude mcp get` shows the name is free ---
 setup $'git\n' ''
 write_mcp_list $'notes notes-server --stdio\n'
@@ -701,6 +731,36 @@ stub_command notes-server
 STUB_MCP_GET_EXIT=0 run_install
 expect_status "MCP server already registered" 0
 expect_claude_calls "a registered server gets no mcp add" 'mcp get notes'
+
+# --- MCP: the lookup runs in an empty directory of its own, removed afterwards ---
+# `claude mcp get` also finds a server registered for just the directory it runs in, and
+# that must not pass for one every project can use. This stub records where each lookup
+# ran and anything it found there.
+setup $'git\n' ''
+write_mcp_list $'notes notes-server\n'
+stub_command notes-server
+cat >"$SANDBOX/bin/claude" <<EOF
+#!$BASH
+if [ "\$2" = get ]; then
+  printf '%s\n' "\$PWD" >>"$SANDBOX/lookup-dirs"
+  for entry in * .[!.]* ..?*; do
+    [ -e "\$entry" ] && printf 'holds %s\n' "\$entry" >>"$SANDBOX/lookup-dirs"
+  done
+  exit 1
+fi
+EOF
+run_install
+expect_status "MCP lookup directory" 0
+lookups="$(cat "$SANDBOX/lookup-dirs" 2>/dev/null)"
+case "$lookups" in
+  '' | *$'\n'* | "$PWD") not_ok "mcp get runs in an empty directory of its own" "lookups: $lookups" ;;
+  *) ok ;;
+esac
+if [ -n "$lookups" ] && [ ! -e "$lookups" ]; then
+  ok
+else
+  not_ok "the lookup directory is removed afterwards" "lookups: $lookups"
+fi
 
 # --- MCP: servers go in file order, and a command's arguments pass through in order ---
 setup $'git\n' ''
@@ -791,7 +851,7 @@ expect_err_contains "mcp add failure names the list" "claude-mcp.txt"
 expect_claude_calls "stops after the first failed mcp add" \
   $'mcp get journal\nmcp add --scope user journal -- notes-server'
 
-# --- MCP: `claude mcp get` is only a lookup, so its output is hidden; `mcp add` keeps its own ---
+# --- MCP: `claude mcp get` answers by exit status, so its output is hidden; `mcp add` keeps its own ---
 setup $'git\n' ''
 write_mcp_list $'notes notes-server\n'
 stub_command notes-server
