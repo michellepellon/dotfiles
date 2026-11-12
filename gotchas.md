@@ -47,3 +47,6 @@ One `<name> <command> [args...]` line per server. `./install` registers each wit
 
 ## pulse is the journal, and Omarchy has no package for it
 `CLAUDE.md` tells the agent to journal; pulse (`2389-research/pulse`) is the tool. It keeps Markdown under `~/.private-journal/`, and its search is a plain substring match. macOS gets it from `brew.txt`, out of a third-party tap. On Omarchy put the Linux release binary on PATH by hand. Never add the AUR's `pulse-bin` to `aur.txt`: that is a different program, a network monitor.
+
+## CLAUDE.md is a fork of Harper's; read his history before borrowing
+`claude/.claude/CLAUDE.md` descends from `.claude/CLAUDE.md` in harperreed/dotfiles, forked in mid-September 2026. Before taking a rule from him, read `git log -p` for that file in his repo, commit messages included. He adds rules in batches, later rewrites the neighbours they contradict, and backs experiments out within weeks. One paragraph taken alone left this file arguing with itself on 2026-11-11.
