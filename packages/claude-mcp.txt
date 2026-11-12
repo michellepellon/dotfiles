@@ -1,6 +1,7 @@
 # MCP servers for ./install, registered with `claude mcp add --scope user` (skips names already registered).
 # One server per line: <name> <command> [args...]. The line is split on whitespace; there is no quoting.
-# Blank lines and anything after `#` are ignored. The command must already be on PATH.
+# Blank lines and `#` comments are ignored, so no argument can begin with `#`.
+# The command must already be on PATH.
 # pulse: brew.txt installs it on macOS. Omarchy has no package for it: put the Linux binary from
 # https://github.com/2389-research/pulse/releases on PATH by hand. The AUR's pulse-bin is a different program.
 pulse pulse mcp

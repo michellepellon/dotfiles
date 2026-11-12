@@ -20,7 +20,8 @@ Reads package names from two lists next to this script, picked by
 On macOS (Darwin):
   packages/brew.txt  passed to `brew install`
   packages/cask.txt  passed to `brew install --cask`
-One name per line; blank lines and anything after `#` are ignored.
+One name per line. Blank lines and comments are ignored. In every list
+a `#` starts a comment at the start of a line or after whitespace.
 A list with no names is skipped. All four commands skip installed
 packages. omarchy prompts for sudo when something is missing; so may
 a cask. The other system's lists are never read.
@@ -46,9 +47,8 @@ only, unless something is already there. ~/.claude/CLAUDE.md imports
 that file; the dotfiles don't track it, so each machine keeps its own.
 
 Next, installs the Claude Code plugins in packages/claude-plugins.txt,
-on either system. Each line holds `<plugin> <marketplace>`; blank lines
-and anything after `#` are ignored. Checks every line first, then runs
-this for each one, in file order:
+on either system. Each line holds `<plugin> <marketplace>`. Checks every
+line first, then runs this for each one, in file order:
   claude plugin install <plugin> --marketplace <marketplace> --scope user
 claude skips an installed plugin and adds a marketplace it doesn't know
 yet, so re-running is safe. For some plugins it shows a command and
@@ -57,10 +57,10 @@ then claude needn't be on PATH.
 
 Last, registers the MCP servers in packages/claude-mcp.txt, on either
 system. Each line holds `<name> <command> [args...]` and is split on
-whitespace, with no quoting; blank lines and anything after `#` are
-ignored. Checks every line first. Then, for each one in file order,
-stops if <command> isn't on PATH, skips a name that
-`claude mcp get <name>` already finds, and otherwise runs:
+whitespace, with no quoting. Checks every line first. Then, for each
+one in file order, stops if <command> isn't on PATH, skips a name that
+`claude mcp get <name>` finds from an empty directory, and otherwise
+runs:
   claude mcp add --scope user <name> -- <command> [args...]
 claude keeps these servers in ~/.claude.json. A list with no servers is
 skipped, and then claude needn't be on PATH.
@@ -119,11 +119,14 @@ for list in "$main_list" "$extra_list" "$plugin_list" "$mcp_list"; do
 done
 
 # read_list <file> — prints one list entry per line, dropping comments, blanks and
-# surrounding whitespace. Handles a last line with no newline.
+# surrounding whitespace. A `#` starts a comment at the start of a line or after
+# whitespace. Inside a word it stays, so a marketplace pinned as owner/repo#ref survives.
+# Handles a last line with no newline.
 read_list() {
   local line
   while IFS= read -r line || [ -n "$line" ]; do
-    line="${line%%#*}"
+    case "$line" in \#*) continue ;; esac
+    line="${line%%[[:space:]]#*}"
     line="${line#"${line%%[![:space:]]*}"}"
     line="${line%"${line##*[![:space:]]}"}"
     [ -n "$line" ] && printf '%s\n' "$line"
@@ -182,7 +185,9 @@ register_hook
 # even when it points nowhere (`-e` alone misses that), so nothing is written through one.
 local_facts="$HOME/.claude/local.md"
 if [ ! -e "$local_facts" ] && [ ! -L "$local_facts" ]; then
-  cat >"$local_facts" <<'EOF' || die "could not write $local_facts"
+  # The shell makes the file before cat runs, so a failed write would leave an empty one
+  # that every later run takes for "already there". Remove it instead.
+  cat >"$local_facts" <<'EOF' || { rm -f "$local_facts"; die "could not write $local_facts"; }
 # This machine
 
 Facts about this machine only: OS, shell, paths, installed tools, network.
@@ -216,11 +221,23 @@ install_plugins() {
 
 install_plugins "$plugin_list"
 
+# registered_for_every_project <name> — true if `claude mcp get` finds the server from an
+# empty directory. Run where the user stands, it also finds a server registered for that
+# one directory, which no other project can use.
+registered_for_every_project() {
+  local dir status
+  dir="$(mktemp -d)" || die "could not make a temporary directory"
+  (cd "$dir" && claude mcp get "$1" >/dev/null 2>&1)
+  status=$?
+  rmdir "$dir"
+  return "$status"
+}
+
 # register_mcp_servers <file> — runs `claude mcp add --scope user <name> -- <command>
 # [args...]` for each "<name> <command> [args...]" line, in file order, unless the list is
 # empty. A line is split on whitespace; there is no quoting. Checks every line before the
-# first call. Skips a name that `claude mcp get` finds, because adding it again fails.
-# Stops at a command that isn't on PATH: a server registered without one can't start.
+# first call. Skips a name already registered for every project, because adding it again
+# fails. Stops at a command that isn't on PATH: a server registered without one can't start.
 register_mcp_servers() {
   local list="$1" lines=() line fields name
   while IFS= read -r line; do
@@ -239,7 +256,7 @@ register_mcp_servers() {
     name="${fields[0]}"
     command -v "${fields[1]}" >/dev/null \
       || die "${fields[1]} not found on PATH; MCP server $name in $list runs it. Install it (the comments in that file say how), then re-run."
-    claude mcp get "$name" >/dev/null 2>&1 && continue
+    registered_for_every_project "$name" && continue
     claude mcp add --scope user "$name" -- "${fields[@]:1}" \
       || die "claude mcp add --scope user $name -- ${fields[*]:1} failed for $list"
   done
