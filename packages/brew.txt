@@ -9,5 +9,6 @@ ast-grep
 stow
 jq
 shellcheck
-gh # on Omarchy gh comes from mise; a Mac has no mise
+gh # on Omarchy gh comes from mise
+mise # runtimes and tools; CLAUDE.md says to use it
 2389-research/tap/pulse # journal MCP server, from a third-party tap; no Arch package exists

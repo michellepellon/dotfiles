@@ -92,6 +92,10 @@ Omarchy 4.0.4 on the target box.
     activity with chronicle is cut from `CLAUDE.md`: no machine had chronicle, and the journal and git
     history record the same things. (2026-11-11)
 
+18. **mise manages runtimes and tools on both systems.** `CLAUDE.md` now says to use it, so `mise` is in
+    `arch.txt` (the Omarchy box already has it; `gh` comes from it) and in `brew.txt`. Nothing is moved
+    into mise yet. (2026-11-11)
+
 ## Known facts
 
 - On Arch the ast-grep command is `ast-grep`, not `sg`; `claude/.claude/CLAUDE.md` says `ast-grep`.
