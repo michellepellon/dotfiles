@@ -46,7 +46,16 @@ One `<plugin> <marketplace>` pair per line. `./install` runs `claude plugin inst
 One `<name> <command> [args...]` line per server. `./install` registers each with `claude mcp add --scope user <name> -- <command> [args...]`, but only after `claude mcp get <name>`, run from an empty directory, fails to find the name: a second `add` of the same name fails. The empty directory matters, because `mcp get` also finds a server registered for just the directory it runs in. It starts each server it finds, to check it. User-scope servers live in `~/.claude.json`. `mcpServers` is not a `settings.json` key, whatever a tool's README says. The command must be on PATH first, or `./install` stops. A registered server is never updated: after changing its line, run `claude mcp remove <name> -s user`, then `./install`.
 
 ## pulse is the journal, and Omarchy has no package for it
-`CLAUDE.md` tells the agent to journal; pulse (`2389-research/pulse`) is the tool. It keeps Markdown under `~/.private-journal/`, and its search is a plain substring match. macOS gets it from `brew.txt`, out of a third-party tap. On Omarchy put the Linux release binary on PATH by hand. Never add the AUR's `pulse-bin` to `aur.txt`: that is a different program, a network monitor.
+`CLAUDE.md` tells the agent to journal; pulse (`2389-research/pulse`) is the tool. It keeps Markdown under `~/.private-journal/`, and its search is a plain substring match. macOS gets it from `brew.txt`, out of a third-party tap. Never add the AUR's `pulse-bin` to `aur.txt`: that is a different program, a network monitor.
+
+On Omarchy pulse is installed by hand (decided 2026-11-11), and `./install` stops at the MCP step until it is on PATH. The release's `checksums.txt` lists only the macOS archives, so check the download against the digest GitHub records for it. For v0.2.4 those are `2c0aad08274e04745f6803d86e9b44f38d69184d8c3f3415a47f5b262bef14c2` (x86_64) and `d70be787a4702620672131bae0c5d4ca3f9dd4dfd073a0403a652f0e741b5956` (arm64).
+
+```sh
+v=0.2.4; a=$(uname -m); [ "$a" = aarch64 ] && a=arm64
+curl -fsSL -o /tmp/pulse.tar.gz "https://github.com/2389-research/pulse/releases/download/v$v/pulse_${v}_Linux_${a}.tar.gz"
+sha256sum /tmp/pulse.tar.gz   # compare with the digest above before going on
+tar -xzf /tmp/pulse.tar.gz -C ~/.local/bin --strip-components=1 "pulse_${v}_Linux_${a}/pulse"
+```
 
 ## CLAUDE.md is a fork of Harper's; read his history before borrowing
 `claude/.claude/CLAUDE.md` descends from `.claude/CLAUDE.md` in harperreed/dotfiles, forked in mid-September 2026. Before taking a rule from him, read `git log -p` for that file in his repo, commit messages included. He adds rules in batches, later rewrites the neighbours they contradict, and backs experiments out within weeks. One paragraph taken alone left this file arguing with itself on 2026-11-11.

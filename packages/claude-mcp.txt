@@ -2,6 +2,6 @@
 # One server per line: <name> <command> [args...]. The line is split on whitespace; there is no quoting.
 # Blank lines and `#` comments are ignored, so no argument can begin with `#`.
 # The command must already be on PATH.
-# pulse: brew.txt installs it on macOS. Omarchy has no package for it: put the Linux binary from
-# https://github.com/2389-research/pulse/releases on PATH by hand. The AUR's pulse-bin is a different program.
+# pulse: brew.txt installs it on macOS. Omarchy has no package for it, so it goes on PATH by hand there;
+# gotchas.md has the steps. The AUR's pulse-bin is a different program.
 pulse pulse mcp

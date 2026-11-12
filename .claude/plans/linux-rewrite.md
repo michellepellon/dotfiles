@@ -86,12 +86,12 @@ Omarchy 4.0.4 on the target box.
     isn't on PATH. macOS gets pulse from `brew.txt` (`2389-research/tap/pulse`). Facts checked on 2026-11-11:
     its `search_journal` is a substring match (nothing in the source builds embeddings), it makes no network
     calls unless the social feed is set up, and `mcpServers` is not a `settings.json` key. The other
-    candidate, `obra/private-journal-mcp`, needs Node and builds from source on first run. (2026-11-11)
+    candidate, `obra/private-journal-mcp`, needs Node and builds from source on first run. On Omarchy, which
+    has no package for pulse, it is installed by hand from the release binary, and `install` stops at the
+    MCP step until it is on PATH; `gotchas.md` has the steps and digests. (2026-11-11)
 
 ## Open
 
-- **pulse on Omarchy.** No package exists, so `install` stops at the MCP step there until `pulse` is on PATH.
-  Choose: keep the hand install, have `install` fetch the release binary, or use mise.
 - **chronicle.** `CLAUDE.md` says to log activity with chronicle, which no machine has. Install it or cut the line.
 
 ## Known facts
@@ -147,7 +147,7 @@ Since 2026-11-11 (decision 12) `install` also runs on macOS, reading `packages/b
 `packages/cask.txt`. Decisions 13–17 added, on both systems: Claude Code plugins from
 `packages/claude-plugins.txt`, MCP servers from `packages/claude-mcp.txt`, a stub `~/.claude/local.md`,
 and the `uv` skill in the `claude` package.
-After pulling these, re-run `./install` on each machine. Next step: settle the two items under Open.
+After pulling these, re-run `./install` on each machine. Next step: settle the item under Open.
 
 tmux, Ghostty and Hyprland run on Omarchy's defaults. On a new machine: clone to `~/Work/dotfiles`,
 run `./install` in a real terminal, and move aside any file stow reports as a conflict.
