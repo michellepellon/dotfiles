@@ -1,0 +1,7 @@
+# Claude Code plugins for ./install, fed one at a time to `claude plugin install` (skips what's installed).
+# One plugin per line: <plugin> <marketplace>. The marketplace is any source that
+# `claude plugin install --marketplace` takes, such as a GitHub owner/repo.
+# Blank lines and `#` comments are ignored. A `#` inside a word is kept, so a marketplace
+# can pin a ref: owner/repo#v1.
+superpowers anthropics/claude-plugins-official
+duckdb-skills anthropics/claude-plugins-official

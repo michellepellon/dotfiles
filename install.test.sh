@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ABOUTME: Tests for install — runs it against scratch package lists with stub omarchy, brew and
+# ABOUTME: Tests for install — runs it against scratch lists with stub omarchy, brew, claude and
 # ABOUTME: uname, and real stow into a scratch HOME. Run: ./install.test.sh (nonzero if any fail).
 
 set -u
@@ -10,8 +10,10 @@ pass=0
 fail=0
 
 # The real omarchy sits in /usr/bin and /usr/share/omarchy/bin, so tests never put system
-# dirs on PATH: it holds only the stub and $TOOLS (symlinks to what install needs), and
+# dirs on PATH: it holds only the stubs and $TOOLS (symlinks to what install needs), and
 # bash runs by absolute path. No test can reach the real omarchy or install anything.
+# The same PATH keeps the real claude out of reach, so no test installs a plugin or
+# registers an MCP server.
 # stow is real; every run sets HOME to a scratch dir, so it only links into that.
 # jq is real too and only ever edits $SANDBOX/home/.claude/settings.json.
 # NOSTOW is TOOLS without stow; NOJQ is TOOLS without jq.
@@ -21,7 +23,7 @@ TOOLS="$SCRATCH/tools"
 NOSTOW="$SCRATCH/nostow"
 NOJQ="$SCRATCH/nojq"
 mkdir -p "$TOOLS" "$NOSTOW" "$NOJQ"
-for tool in dirname cat cp mv rm; do
+for tool in dirname cat cp mv rm mktemp rmdir; do
   ln -s "$(command -v "$tool")" "$TOOLS/$tool"
   ln -s "$(command -v "$tool")" "$NOSTOW/$tool"
   ln -s "$(command -v "$tool")" "$NOJQ/$tool"
@@ -47,9 +49,11 @@ not_ok() {
 }
 
 # setup <arch-list-contents> <aur-list-contents> — fresh sandbox with a copy of install,
-# the given lists, a copy of the claude stow package, a repo-only .claude/plans file, an
-# empty $SANDBOX/home to stow into, and a stub omarchy that appends "$*" to $SANDBOX/calls
-# and exits $STUB_EXIT.
+# the given lists, a comment-only claude-plugins.txt and claude-mcp.txt, a copy of the
+# claude stow package, a repo-only .claude/plans file, an empty $SANDBOX/home to stow into,
+# a stub omarchy that appends "$*" to $SANDBOX/calls and exits $STUB_EXIT, and a stub claude
+# that appends "$*" to $SANDBOX/claude-calls and exits $STUB_CLAUDE_EXIT — except for
+# `mcp get`, which exits $STUB_MCP_GET_EXIT (default 1: no server has that name).
 setup() {
   SANDBOX="$(mktemp -d "$SCRATCH/case.XXXXXX")"
   cp "$REPO/install" "$SANDBOX/install"
@@ -58,13 +62,25 @@ setup() {
   printf 'plan\n' >"$SANDBOX/.claude/plans/plan.md"
   printf '%s' "$1" >"$SANDBOX/packages/arch.txt"
   printf '%s' "$2" >"$SANDBOX/packages/aur.txt"
+  printf '# no plugins\n' >"$SANDBOX/packages/claude-plugins.txt"
+  printf '# no servers\n' >"$SANDBOX/packages/claude-mcp.txt"
   cat >"$SANDBOX/bin/omarchy" <<EOF
 #!$BASH
 printf '%s\n' "\$*" >>"$SANDBOX/calls"
 exit "\${STUB_EXIT:-0}"
 EOF
   chmod +x "$SANDBOX/bin/omarchy"
+  cat >"$SANDBOX/bin/claude" <<EOF
+#!$BASH
+printf '%s\n' "\$*" >>"$SANDBOX/claude-calls"
+case "\$1 \$2" in
+  'mcp get') exit "\${STUB_MCP_GET_EXIT:-1}" ;;
+esac
+exit "\${STUB_CLAUDE_EXIT:-0}"
+EOF
+  chmod +x "$SANDBOX/bin/claude"
   : >"$SANDBOX/calls"
+  : >"$SANDBOX/claude-calls"
 }
 
 # setup_mac <brew-list-contents> <cask-list-contents> — like setup, but for the macOS path:
@@ -84,10 +100,23 @@ EOF
   chmod +x "$SANDBOX/bin/brew"
 }
 
+# write_plugin_list <contents> — replaces the sandbox's comment-only claude-plugins.txt.
+write_plugin_list() { printf '%s' "$1" >"$SANDBOX/packages/claude-plugins.txt"; }
+
+# write_mcp_list <contents> — replaces the sandbox's comment-only claude-mcp.txt.
+write_mcp_list() { printf '%s' "$1" >"$SANDBOX/packages/claude-mcp.txt"; }
+
+# stub_command <name> — puts a do-nothing <name> on the sandbox's PATH, standing in for an
+# MCP server's command that is installed.
+stub_command() {
+  printf '#!%s\n' "$BASH" >"$SANDBOX/bin/$1"
+  chmod +x "$SANDBOX/bin/$1"
+}
+
 # file_mode <file> — prints the octal permission bits (GNU stat, else BSD stat).
 file_mode() { stat -c %a "$1" 2>/dev/null || stat -f %Lp "$1"; }
 
-# run_install [args...] — runs the sandbox copy with the stub first on PATH and HOME set
+# run_install [args...] — runs the sandbox copy with the stubs first on PATH and HOME set
 # to $SANDBOX/home; sets $status, $out and $err.
 run_install() {
   HOME="$SANDBOX/home" PATH="$SANDBOX/bin:$TOOLS" "$BASH" "$SANDBOX/install" "$@" \
@@ -102,6 +131,13 @@ expect_calls() {
   local got
   got="$(cat "$SANDBOX/calls")"
   if [ "$got" = "$2" ]; then ok; else not_ok "$1" "expected calls: $(printf '%q' "$2")" "got calls:      $(printf '%q' "$got")"; fi
+}
+
+# expect_claude_calls <description> <expected claude-calls file contents>
+expect_claude_calls() {
+  local got
+  got="$(cat "$SANDBOX/claude-calls")"
+  if [ "$got" = "$2" ]; then ok; else not_ok "$1" "expected claude calls: $(printf '%q' "$2")" "got claude calls:      $(printf '%q' "$got")"; fi
 }
 
 expect_status() {
@@ -149,7 +185,7 @@ cp "$REPO/packages/arch.txt" "$REPO/packages/aur.txt" "$SANDBOX/packages/"
 run_install
 expect_status "repo lists" 0
 expect_calls "repo arch.txt passes decision 8's packages; aur.txt is empty" \
-  'pkg add aws-cli-v2 duckdb uv bitwarden tmux ghostty git ast-grep stow jq shellcheck'
+  'pkg add aws-cli-v2 duckdb uv bitwarden tmux ghostty git ast-grep stow jq shellcheck mise'
 
 # --- omarchy missing from PATH ---
 setup $'git\n' ''
@@ -173,6 +209,27 @@ run_install
 expect_status "missing aur.txt exits nonzero" 1
 expect_err_contains "missing aur.txt names the file" "packages/aur.txt"
 expect_calls "missing aur.txt makes no omarchy calls" ''
+
+# In the next two the other claude list has an entry, so "no claude calls" can only mean
+# the missing list stopped the run before either step.
+setup $'git\n' ''
+write_mcp_list $'notes notes-server\n'
+stub_command notes-server
+rm "$SANDBOX/packages/claude-plugins.txt"
+run_install
+expect_status "missing claude-plugins.txt exits nonzero" 1
+expect_err_contains "missing claude-plugins.txt names the file" "packages/claude-plugins.txt"
+expect_calls "missing claude-plugins.txt makes no omarchy calls" ''
+expect_claude_calls "missing claude-plugins.txt makes no claude calls" ''
+
+setup $'git\n' ''
+write_plugin_list $'superpowers anthropics/claude-plugins-official\n'
+rm "$SANDBOX/packages/claude-mcp.txt"
+run_install
+expect_status "missing claude-mcp.txt exits nonzero" 1
+expect_err_contains "missing claude-mcp.txt names the file" "packages/claude-mcp.txt"
+expect_calls "missing claude-mcp.txt makes no omarchy calls" ''
+expect_claude_calls "missing claude-mcp.txt makes no claude calls" ''
 
 # --- omarchy failure propagates, naming the list ---
 setup $'git\n' $'foo-bin\n'
@@ -205,7 +262,7 @@ cp "$REPO/packages/brew.txt" "$REPO/packages/cask.txt" "$SANDBOX/packages/"
 STUB_OS=Darwin run_install
 expect_status "macOS: repo lists" 0
 expect_calls "macOS: repo brew.txt and cask.txt pass their packages" \
-  $'brew install awscli duckdb uv tmux git ast-grep stow jq shellcheck gh\nbrew install --cask bitwarden ghostty'
+  $'brew install awscli duckdb uv tmux git ast-grep stow jq shellcheck gh mise 2389-research/tap/pulse\nbrew install --cask bitwarden ghostty'
 
 # --- macOS: never needs omarchy or the Arch lists, and stows and registers the hook ---
 setup_mac $'git\n' ''
@@ -217,6 +274,23 @@ if jq -e '.hooks.PreToolUse[0].matcher == "Bash"' "$SANDBOX/home/.claude/setting
 else
   not_ok "macOS: registers the guard hook"
 fi
+
+# --- macOS: the steps after the hook run too ---
+setup_mac $'git\n' ''
+write_plugin_list $'superpowers anthropics/claude-plugins-official\n'
+STUB_OS=Darwin run_install
+expect_status "macOS: local.md and plugins" 0
+if [ -f "$SANDBOX/home/.claude/local.md" ]; then ok; else not_ok "macOS: creates local.md"; fi
+expect_claude_calls "macOS: installs the plugins" \
+  'plugin install superpowers --marketplace anthropics/claude-plugins-official --scope user'
+
+setup_mac $'git\n' ''
+write_mcp_list $'notes notes-server --stdio\n'
+stub_command notes-server
+STUB_OS=Darwin run_install
+expect_status "macOS: MCP servers" 0
+expect_claude_calls "macOS: registers the MCP servers" \
+  $'mcp get notes\nmcp add --scope user notes -- notes-server --stdio'
 
 # --- macOS: brew missing from PATH ---
 setup_mac $'git\n' ''
@@ -239,6 +313,20 @@ STUB_OS=Darwin run_install
 expect_status "macOS: missing cask.txt exits nonzero" 1
 expect_err_contains "macOS: missing cask.txt names the file" "packages/cask.txt"
 expect_calls "macOS: missing cask.txt makes no brew calls" ''
+
+setup_mac $'git\n' ''
+rm "$SANDBOX/packages/claude-plugins.txt"
+STUB_OS=Darwin run_install
+expect_status "macOS: missing claude-plugins.txt exits nonzero" 1
+expect_err_contains "macOS: missing claude-plugins.txt names the file" "packages/claude-plugins.txt"
+expect_calls "macOS: missing claude-plugins.txt makes no brew calls" ''
+
+setup_mac $'git\n' ''
+rm "$SANDBOX/packages/claude-mcp.txt"
+STUB_OS=Darwin run_install
+expect_status "macOS: missing claude-mcp.txt exits nonzero" 1
+expect_err_contains "macOS: missing claude-mcp.txt names the file" "packages/claude-mcp.txt"
+expect_calls "macOS: missing claude-mcp.txt makes no brew calls" ''
 
 # --- macOS: brew failure propagates, naming the list ---
 setup_mac $'git\n' $'ghostty\n'
@@ -293,6 +381,27 @@ if [ ! -e "$SANDBOX/home/.claude/plans" ]; then ok; else not_ok ".claude/plans i
 run_install
 expect_status "re-run on a stowed home" 0
 expect_link "re-run keeps the CLAUDE.md link" .claude/CLAUDE.md
+
+# --- stow: a skill is linked file by file, next to the skills Claude Code keeps there itself ---
+setup $'git\n' ''
+mkdir -p "$SANDBOX/home/.claude/skills/synced"
+printf 'written by Claude Code\n' >"$SANDBOX/home/.claude/skills/synced/keep.txt"
+cp "$SANDBOX/home/.claude/skills/synced/keep.txt" "$SANDBOX/before-keep.txt"
+run_install
+expect_status "stow next to Claude Code's own skills" 0
+expect_link "stows the uv skill" .claude/skills/uv/SKILL.md
+if [ -d "$SANDBOX/home/.claude/skills" ] && [ ! -L "$SANDBOX/home/.claude/skills" ] \
+  && [ -d "$SANDBOX/home/.claude/skills/uv" ] && [ ! -L "$SANDBOX/home/.claude/skills/uv" ]; then
+  ok
+else
+  not_ok "HOME/.claude/skills and HOME/.claude/skills/uv are real dirs, not links into the repo"
+fi
+if [ ! -L "$SANDBOX/home/.claude/skills/synced/keep.txt" ] \
+  && cmp -s "$SANDBOX/before-keep.txt" "$SANDBOX/home/.claude/skills/synced/keep.txt"; then
+  ok
+else
+  not_ok "Claude Code's own skill file is untouched"
+fi
 
 # --- stow: a real file in the way stops the run and stays untouched ---
 setup $'git\n' ''
@@ -422,9 +531,362 @@ expect_status "missing jq exits nonzero" 1
 expect_err_contains "missing jq names jq" "jq not found"
 if [ ! -e "$(settings_file)" ]; then ok; else not_ok "missing jq writes no settings.json"; fi
 
+# --- local.md: the machine-local facts file that CLAUDE.md imports ---
+# local_file — the sandbox's ~/.claude/local.md.
+local_file() { printf '%s' "$SANDBOX/home/.claude/local.md"; }
+
+# expect_local <description> <file holding the expected bytes>
+expect_local() {
+  if cmp -s "$2" "$(local_file)"; then ok; else not_ok "$1" "local.md holds: $(cat "$(local_file)" 2>&1)"; fi
+}
+
+# --- a missing local.md is created holding the stub ---
+setup $'git\n' ''
+run_install
+expect_status "creates local.md" 0
+cat >"$SANDBOX/stub-local.md" <<'EOF'
+# This machine
+
+Facts about this machine only: OS, shell, paths, installed tools, network.
+`~/.claude/CLAUDE.md` imports this file; the dotfiles don't track it.
+EOF
+expect_local "new local.md holds the stub" "$SANDBOX/stub-local.md"
+
+# --- re-running leaves local.md byte-identical ---
+run_install
+expect_status "re-run with local.md in place" 0
+expect_local "re-run leaves local.md byte-identical" "$SANDBOX/stub-local.md"
+
+# --- a local.md that is already there is left as is ---
+setup $'git\n' ''
+mkdir -p "$SANDBOX/home/.claude"
+printf 'Omarchy on a ThinkPad, zsh\nno newline at the end' >"$(local_file)"
+cp "$(local_file)" "$SANDBOX/before-local.md"
+run_install
+expect_status "local.md already there" 0
+expect_local "existing local.md stays byte-identical" "$SANDBOX/before-local.md"
+
+# --- a dangling link at local.md is already there too: nothing is written through it ---
+setup $'git\n' ''
+mkdir -p "$SANDBOX/home/.claude"
+ln -s "$SANDBOX/elsewhere.md" "$(local_file)"
+run_install
+expect_status "dangling local.md link" 0
+if [ -L "$(local_file)" ] && [ "$(readlink "$(local_file)")" = "$SANDBOX/elsewhere.md" ]; then
+  ok
+else
+  not_ok "dangling local.md link stays the same link"
+fi
+if [ ! -e "$SANDBOX/elsewhere.md" ]; then ok; else not_ok "dangling local.md link's target is not created"; fi
+
+# --- a local.md that can't be written stops the run ---
+# install writes the stub with cat, so a cat that fails stands in for a failed write.
+setup $'git\n' ''
+printf '#!%s\nexit 1\n' "$BASH" >"$SANDBOX/bin/cat"
+chmod +x "$SANDBOX/bin/cat"
+run_install
+expect_status "unwritable local.md exits nonzero" 1
+expect_err_contains "unwritable local.md names the file" "could not write $(local_file)"
+# The shell makes the file before cat runs. Left behind empty, it would pass for a local.md
+# that is "already there" on every later run.
+if [ ! -e "$(local_file)" ] && [ ! -L "$(local_file)" ]; then
+  ok
+else
+  not_ok "unwritable local.md leaves no file behind" "found: $(local_file)"
+fi
+
+# --- the stowed CLAUDE.md imports the very path install writes the stub to ---
+if grep -qxF '@~/.claude/local.md' "$REPO/claude/.claude/CLAUDE.md"; then
+  ok
+else
+  not_ok "CLAUDE.md imports ~/.claude/local.md" "no line of claude/.claude/CLAUDE.md is exactly: @~/.claude/local.md"
+fi
+
+# --- plugins: each list line becomes one `claude plugin install`, in file order ---
+setup $'git\n' ''
+write_plugin_list $'superpowers anthropics/claude-plugins-official\nformatter someone/their-plugins\n'
+run_install
+expect_status "two plugins" 0
+expect_claude_calls "installs each plugin from its marketplace, in file order" \
+  $'plugin install superpowers --marketplace anthropics/claude-plugins-official --scope user\nplugin install formatter --marketplace someone/their-plugins --scope user'
+
+# --- plugins: comments, blank lines, trailing comments and whitespace are ignored ---
+setup $'git\n' ''
+write_plugin_list $'# header comment\n\n  superpowers   anthropics/claude-plugins-official  \n   \nformatter\tsomeone/their-plugins # trailing comment\n\t# indented comment\nlast-one some/where'
+run_install
+expect_status "parses the plugin list" 0
+expect_claude_calls "plugin list skips comments/blanks, trims whitespace and trailing comments" \
+  $'plugin install superpowers --marketplace anthropics/claude-plugins-official --scope user\nplugin install formatter --marketplace someone/their-plugins --scope user\nplugin install last-one --marketplace some/where --scope user'
+
+# --- lists: a `#` starts a comment only at the start of a line or after whitespace ---
+# A marketplace may pin a ref as owner/repo#ref, so a `#` inside a word has to survive.
+setup $'git\n' ''
+write_plugin_list $'pinned acme/plugins#v1.2.0\nplain acme/plugins # a comment\n#whole-line comment\n'
+run_install
+expect_status "plugin list with a pinned marketplace" 0
+expect_claude_calls "a # inside a word is kept; a # after whitespace starts a comment" \
+  $'plugin install pinned --marketplace acme/plugins#v1.2.0 --scope user\nplugin install plain --marketplace acme/plugins --scope user'
+
+# --- plugins: the real repo list feeds the real plugins ---
+setup $'git\n' ''
+cp "$REPO/packages/claude-plugins.txt" "$SANDBOX/packages/"
+run_install
+expect_status "repo plugin list" 0
+expect_claude_calls "repo claude-plugins.txt installs superpowers and duckdb-skills" \
+  $'plugin install superpowers --marketplace anthropics/claude-plugins-official --scope user\nplugin install duckdb-skills --marketplace anthropics/claude-plugins-official --scope user'
+
+# --- plugins and MCP servers: comment-only lists are skipped, and then claude needn't be on PATH ---
+setup $'git\n' ''
+run_install
+expect_status "comment-only plugin and MCP lists" 0
+expect_claude_calls "comment-only plugin and MCP lists make no claude calls" ''
+
+setup $'git\n' ''
+rm "$SANDBOX/bin/claude"
+run_install
+expect_status "comment-only plugin and MCP lists run without claude on PATH" 0
+
+# --- plugins: claude missing from PATH (after the steps before it) ---
+setup $'git\n' ''
+write_plugin_list $'superpowers anthropics/claude-plugins-official\n'
+rm "$SANDBOX/bin/claude"
+run_install
+expect_status "missing claude exits nonzero" 1
+expect_err_contains "missing claude names claude" "claude not found"
+expect_link "missing claude still stows first" .claude/CLAUDE.md
+if [ -f "$(local_file)" ]; then ok; else not_ok "missing claude still creates local.md first"; fi
+
+# --- plugins: a line that isn't `<plugin> <marketplace>` stops the run before any claude call ---
+setup $'git\n' ''
+write_plugin_list $'superpowers anthropics/claude-plugins-official\nlonely-plugin\n'
+run_install
+expect_status "one-field plugin line exits nonzero" 1
+expect_err_contains "one-field plugin line names the list" "claude-plugins.txt"
+expect_err_contains "one-field plugin line shows the line" "lonely-plugin"
+expect_claude_calls "one-field plugin line makes no claude calls, even after a good line" ''
+
+setup $'git\n' ''
+write_plugin_list $'superpowers anthropics/claude-plugins-official\nformatter someone/their-plugins main\n'
+run_install
+expect_status "three-field plugin line exits nonzero" 1
+expect_err_contains "three-field plugin line names the list" "claude-plugins.txt"
+expect_err_contains "three-field plugin line shows the line" "formatter someone/their-plugins main"
+expect_claude_calls "three-field plugin line makes no claude calls, even after a good line" ''
+
+# --- plugins: a claude failure propagates, naming the plugin, its marketplace and the list ---
+setup $'git\n' ''
+write_plugin_list $'superpowers anthropics/claude-plugins-official\nformatter someone/their-plugins\n'
+STUB_CLAUDE_EXIT=1 run_install
+expect_status "failing claude exits nonzero" 1
+expect_err_contains "failure names the plugin" "superpowers"
+expect_err_contains "failure names the marketplace" "anthropics/claude-plugins-official"
+expect_err_contains "failure names the plugin list" "claude-plugins.txt"
+expect_claude_calls "stops after the first failed plugin" \
+  'plugin install superpowers --marketplace anthropics/claude-plugins-official --scope user'
+
+# --- plugins: claude keeps install's stdin, stdout and stderr, so its prompt reaches a person ---
+setup $'git\n' ''
+write_plugin_list $'superpowers anthropics/claude-plugins-official\nformatter someone/their-plugins\n'
+cat >"$SANDBOX/bin/claude" <<EOF
+#!$BASH
+printf 'run this for %s? ' "\$3" >&2
+IFS= read -r answer
+printf '%s: %s\n' "\$3" "\$answer"
+EOF
+run_install <<<$'yes\nno'
+expect_status "claude asks before it installs" 0
+case "$out" in
+  *$'superpowers: yes\nformatter: no'*) ok ;;
+  *) not_ok "claude reads install's stdin and writes to its stdout" "stdout: $out" ;;
+esac
+expect_err_contains "claude's stderr comes through" "run this for superpowers? "
+
+# --- plugins: each word reaches claude as an argument of its own ---
+# The usual stub logs "$*", which can't tell two arguments from one that holds a space.
+# This one logs a word per line.
+setup $'git\n' ''
+write_plugin_list $'superpowers anthropics/claude-plugins-official\n'
+cat >"$SANDBOX/bin/claude" <<EOF
+#!$BASH
+printf '%s\n' "\$@" >>"$SANDBOX/claude-calls"
+EOF
+run_install
+expect_status "plugin install arguments" 0
+expect_claude_calls "plugin install gets one word per argument" \
+  $'plugin\ninstall\nsuperpowers\n--marketplace\nanthropics/claude-plugins-official\n--scope\nuser'
+
+# --- MCP: a server no one registered is added, once `claude mcp get` shows the name is free ---
+setup $'git\n' ''
+write_mcp_list $'notes notes-server --stdio\n'
+stub_command notes-server
+run_install
+expect_status "one MCP server" 0
+expect_claude_calls "looks the server up, then adds it" \
+  $'mcp get notes\nmcp add --scope user notes -- notes-server --stdio'
+
+# --- MCP: a server that is already registered is left alone ---
+setup $'git\n' ''
+write_mcp_list $'notes notes-server --stdio\n'
+stub_command notes-server
+STUB_MCP_GET_EXIT=0 run_install
+expect_status "MCP server already registered" 0
+expect_claude_calls "a registered server gets no mcp add" 'mcp get notes'
+
+# --- MCP: the lookup runs in an empty directory of its own, removed afterwards ---
+# `claude mcp get` also finds a server registered for just the directory it runs in, and
+# that must not pass for one every project can use. This stub records where each lookup
+# ran and anything it found there.
+setup $'git\n' ''
+write_mcp_list $'notes notes-server\n'
+stub_command notes-server
+cat >"$SANDBOX/bin/claude" <<EOF
+#!$BASH
+if [ "\$2" = get ]; then
+  printf '%s\n' "\$PWD" >>"$SANDBOX/lookup-dirs"
+  for entry in * .[!.]* ..?*; do
+    [ -e "\$entry" ] && printf 'holds %s\n' "\$entry" >>"$SANDBOX/lookup-dirs"
+  done
+  exit 1
+fi
+EOF
+run_install
+expect_status "MCP lookup directory" 0
+lookups="$(cat "$SANDBOX/lookup-dirs" 2>/dev/null)"
+case "$lookups" in
+  '' | *$'\n'* | "$PWD") not_ok "mcp get runs in an empty directory of its own" "lookups: $lookups" ;;
+  *) ok ;;
+esac
+if [ -n "$lookups" ] && [ ! -e "$lookups" ]; then
+  ok
+else
+  not_ok "the lookup directory is removed afterwards" "lookups: $lookups"
+fi
+
+# --- MCP: servers go in file order, and a command's arguments pass through in order ---
+setup $'git\n' ''
+write_mcp_list $'notes notes-server --stdio --root /tmp/x\nweb-pages browser-mcp\n'
+stub_command notes-server
+stub_command browser-mcp
+run_install
+expect_status "two MCP servers" 0
+expect_claude_calls "registers each server in file order, with its arguments" \
+  $'mcp get notes\nmcp add --scope user notes -- notes-server --stdio --root /tmp/x\nmcp get web-pages\nmcp add --scope user web-pages -- browser-mcp'
+
+# --- MCP: a line is split on whitespace and nothing else: one word per field, globs as written ---
+# This stub logs one word per line. `/*` would match something whatever the current dir is.
+setup $'git\n' ''
+write_mcp_list $'notes notes-server --only /* --root /tmp/x\n'
+stub_command notes-server
+cat >"$SANDBOX/bin/claude" <<EOF
+#!$BASH
+[ "\$2" = get ] && exit 1
+printf '%s\n' "\$@" >>"$SANDBOX/claude-calls"
+EOF
+run_install
+expect_status "MCP line with a glob" 0
+expect_claude_calls "mcp add gets one word per field, unexpanded" \
+  $'mcp\nadd\n--scope\nuser\nnotes\n--\nnotes-server\n--only\n/*\n--root\n/tmp/x'
+
+# --- MCP: comments, blank lines and surrounding whitespace are ignored ---
+setup $'git\n' ''
+write_mcp_list $'# header comment\n\n  notes   notes-server\t--stdio  \n   \nweb-pages browser-mcp # trailing comment\n\t# indented comment\nlast last-server'
+stub_command notes-server
+stub_command browser-mcp
+stub_command last-server
+run_install
+expect_status "parses the MCP list" 0
+expect_claude_calls "MCP list skips comments/blanks, trims whitespace and trailing comments" \
+  $'mcp get notes\nmcp add --scope user notes -- notes-server --stdio\nmcp get web-pages\nmcp add --scope user web-pages -- browser-mcp\nmcp get last\nmcp add --scope user last -- last-server'
+
+# --- MCP: the real repo list registers the real servers ---
+setup $'git\n' ''
+cp "$REPO/packages/claude-mcp.txt" "$SANDBOX/packages/"
+stub_command pulse
+run_install
+expect_status "repo MCP list" 0
+expect_claude_calls "repo claude-mcp.txt registers pulse" \
+  $'mcp get pulse\nmcp add --scope user pulse -- pulse mcp'
+
+# --- MCP: claude missing from PATH ---
+setup $'git\n' ''
+write_mcp_list $'notes notes-server\n'
+stub_command notes-server
+rm "$SANDBOX/bin/claude"
+run_install
+expect_status "MCP list without claude exits nonzero" 1
+expect_err_contains "MCP list without claude names claude" "claude not found"
+expect_err_contains "MCP list without claude names the list" "claude-mcp.txt"
+
+# --- MCP: a line with a name but no command stops the run before any claude call ---
+setup $'git\n' ''
+write_mcp_list $'notes notes-server\nlonely-server\n'
+stub_command notes-server
+run_install
+expect_status "one-field MCP line exits nonzero" 1
+expect_err_contains "one-field MCP line names the list" "claude-mcp.txt"
+expect_err_contains "one-field MCP line shows the line" "lonely-server"
+expect_claude_calls "one-field MCP line makes no claude calls, even after a good line" ''
+
+# --- MCP: a server whose command isn't on PATH stops the run before claude hears of it ---
+setup $'git\n' ''
+write_mcp_list $'notes notes-server\nweb-pages browser-mcp --headless\n'
+stub_command notes-server
+run_install
+expect_status "missing MCP command exits nonzero" 1
+expect_err_contains "missing MCP command names the command" "browser-mcp"
+expect_err_contains "missing MCP command names the server" "web-pages"
+expect_err_contains "missing MCP command names the list" "claude-mcp.txt"
+expect_claude_calls "missing MCP command gets no mcp get or mcp add" \
+  $'mcp get notes\nmcp add --scope user notes -- notes-server'
+
+# --- MCP: a failing `claude mcp add` propagates, naming the server and the list ---
+setup $'git\n' ''
+write_mcp_list $'journal notes-server\nweb-pages browser-mcp\n'
+stub_command notes-server
+stub_command browser-mcp
+STUB_CLAUDE_EXIT=1 run_install
+expect_status "failing mcp add exits nonzero" 1
+expect_err_contains "mcp add failure names the server" "journal"
+expect_err_contains "mcp add failure names the list" "claude-mcp.txt"
+expect_claude_calls "stops after the first failed mcp add" \
+  $'mcp get journal\nmcp add --scope user journal -- notes-server'
+
+# --- MCP: `claude mcp get` answers by exit status, so its output is hidden; `mcp add` keeps its own ---
+setup $'git\n' ''
+write_mcp_list $'notes notes-server\n'
+stub_command notes-server
+cat >"$SANDBOX/bin/claude" <<EOF
+#!$BASH
+printf '%s says hello\n' "\$2"
+printf '%s complains\n' "\$2" >&2
+[ "\$2" = add ]
+EOF
+run_install
+expect_status "claude mcp output" 0
+case "$out" in
+  *'add says hello'*) ok ;;
+  *) not_ok "mcp add's stdout comes through" "stdout: $out" ;;
+esac
+expect_err_contains "mcp add's stderr comes through" 'add complains'
+case "$out$err" in
+  *'get says hello'* | *'get complains'*) not_ok "mcp get's output is hidden" "stdout: $out" "stderr: $err" ;;
+  *) ok ;;
+esac
+
+# --- order: every plugin is installed before the first MCP server is looked up ---
+setup $'git\n' ''
+write_plugin_list $'superpowers anthropics/claude-plugins-official\nformatter someone/their-plugins\n'
+write_mcp_list $'notes notes-server\n'
+stub_command notes-server
+run_install
+expect_status "plugins and MCP servers" 0
+expect_claude_calls "every plugin call comes before the first mcp call" \
+  $'plugin install superpowers --marketplace anthropics/claude-plugins-official --scope user\nplugin install formatter --marketplace someone/their-plugins --scope user\nmcp get notes\nmcp add --scope user notes -- notes-server'
+
 # --- help ---
 for flag in -h --help; do
   setup $'git\n' ''
+  write_plugin_list $'superpowers anthropics/claude-plugins-official\n'
   run_install "$flag"
   expect_status "$flag exits 0" 0
   case "$out" in
@@ -439,14 +901,29 @@ for flag in -h --help; do
     *settings.json*) ok ;;
     *) not_ok "$flag describes the hook registration" "stdout: $out" ;;
   esac
+  case "$out" in
+    *local.md*) ok ;;
+    *) not_ok "$flag describes the local.md step" "stdout: $out" ;;
+  esac
+  case "$out" in
+    *claude-plugins.txt*) ok ;;
+    *) not_ok "$flag describes the plugin step" "stdout: $out" ;;
+  esac
+  case "$out" in
+    *claude-mcp.txt*) ok ;;
+    *) not_ok "$flag describes the MCP step" "stdout: $out" ;;
+  esac
   expect_calls "$flag makes no omarchy calls" ''
+  expect_claude_calls "$flag makes no claude calls" ''
 done
 
 # --- unknown argument ---
 setup $'git\n' ''
+write_plugin_list $'superpowers anthropics/claude-plugins-official\n'
 run_install --bogus
 expect_status "unknown argument exits 2" 2
 expect_calls "unknown argument makes no omarchy calls" ''
+expect_claude_calls "unknown argument makes no claude calls" ''
 
 printf '\n%d passed, %d failed\n' "$pass" "$fail"
 [ "$fail" = 0 ]
