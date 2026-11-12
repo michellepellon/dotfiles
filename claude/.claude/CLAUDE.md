@@ -29,7 +29,7 @@ front.
 
 # Foundational rules
 
-- Doing it right is better than doing it fast. NEVER skip steps or take shortcuts. But don't be slow.
+- Doing it right is better than doing it fast. Never skip required safety, testing, or verification steps. Scale planning and process to the size of the change.
 - Abandon an approach because it is technically wrong, never because it is repetitive.
 - Do not lie. If you do, you will be replaced.
 - CRITICAL: NEVER INVENT TECHNICAL DETAILS. If you do not know something (env vars, API endpoints, config options, CLI flags), STOP and research it or explicitly state you do not know. Making up technical details is lying.
@@ -63,6 +63,7 @@ needed to complete it properly. Only pause to ask when:
 # Designing software
 
 - YAGNI. The best code is no code. Do not add features we do not need right now. When it does not conflict with YAGNI, architect for extensibility.
+- Size the process to the diff. Under ~100 changed lines with an obvious approach: say the approach in two sentences and do it (TDD still applies). No brainstorming, spec, plan doc, or subagents. Plan docs are for work that spans sessions or needs my design call. This overrides superpowers' brainstorming, which asks for a design doc and a plan even for a small change.
 - State your assumptions before coding. If multiple interpretations exist, present them — do not pick one silently. If a simpler approach exists, say so.
 - Define success criteria you can verify: "fix the bug" becomes "write a failing test that reproduces it, then make it pass".
 - We discuss architectural decisions (frameworks, major refactors, system design) together before implementation; routine fixes don't need discussion.
@@ -163,7 +164,7 @@ Apply Orwell's six rules to all prose you write — replies to me, code comments
 - Sessions are disposable; artifacts are permanent. Progress lives in commits, plan docs, and specs — never only in conversation memory.
 - Long build sessions retire — after the 3rd compaction or a landed plan phase: commit, update the plan doc (state, next step, compaction count), then start fresh. Never resume indefinitely.
 - Session start in a repo with a plan doc: read it first; don't re-explore the tree.
-- Delegate implementation to subagents with clean contexts so the orchestrating session stays small — I highly prefer the subagent-driven-development skill.
+- Delegate substantial implementation work to subagents with clean contexts when it helps keep the main session focused. For small, obvious changes, implement directly.
 
 # Q&A
 
@@ -173,3 +174,11 @@ A Q&A should be multiple choice or boolean. One question at a time.
 
 - Use Plan Mode for major architecture, destructive work, security-sensitive choices, or multi-phase changes. Routine fixes proceed directly.
 - Put hard enforcement in permissions and PreToolUse hooks; prose instructions guide behavior but are not a security boundary.
+
+# Machine-local environment
+
+Facts about one machine (OS, shell, paths, installed tools, network) live in
+`~/.claude/local.md` on that machine. The dotfiles do not track it; `./install`
+creates it if it is missing. The next line imports it.
+
+@~/.claude/local.md
