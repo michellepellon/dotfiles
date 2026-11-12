@@ -185,7 +185,7 @@ cp "$REPO/packages/arch.txt" "$REPO/packages/aur.txt" "$SANDBOX/packages/"
 run_install
 expect_status "repo lists" 0
 expect_calls "repo arch.txt passes decision 8's packages; aur.txt is empty" \
-  'pkg add aws-cli-v2 duckdb uv bitwarden tmux ghostty git ast-grep stow jq shellcheck'
+  'pkg add aws-cli-v2 duckdb uv bitwarden tmux ghostty git ast-grep stow jq shellcheck mise'
 
 # --- omarchy missing from PATH ---
 setup $'git\n' ''
@@ -262,7 +262,7 @@ cp "$REPO/packages/brew.txt" "$REPO/packages/cask.txt" "$SANDBOX/packages/"
 STUB_OS=Darwin run_install
 expect_status "macOS: repo lists" 0
 expect_calls "macOS: repo brew.txt and cask.txt pass their packages" \
-  $'brew install awscli duckdb uv tmux git ast-grep stow jq shellcheck gh 2389-research/tap/pulse\nbrew install --cask bitwarden ghostty'
+  $'brew install awscli duckdb uv tmux git ast-grep stow jq shellcheck gh mise 2389-research/tap/pulse\nbrew install --cask bitwarden ghostty'
 
 # --- macOS: never needs omarchy or the Arch lists, and stows and registers the hook ---
 setup_mac $'git\n' ''
