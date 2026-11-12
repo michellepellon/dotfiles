@@ -76,13 +76,13 @@ Omarchy 4.0.4 on the target box.
 15. **Skills ship in the `claude` stow package.** The first is `claude/.claude/skills/uv/SKILL.md`, copied from
     harperreed/dotfiles, because `CLAUDE.md` points at "the uv skill". (2026-11-11)
 16. **This repo's `.claude/settings.json` turns off commit attribution.** It sets `attribution.commit` to `""`
-    at project scope, so Claude Code is never told to add a `Co-Authored-By` trailer here. `gotchas.md` keeps
+    at project scope, so a Claude Code session started in this repo is never told to add a `Co-Authored-By` trailer; one started elsewhere still is. `gotchas.md` keeps
     the rule for other tools. The global `~/.claude/settings.json` is unchanged. (2026-11-11)
 
 17. **pulse is the journal; MCP servers live in a text list.** `CLAUDE.md` tells the agent to journal, so the
     journal tool is pulse (`2389-research/pulse`, a Go binary with an MCP server). `packages/claude-mcp.txt`
     holds one `<name> <command> [args...]` line per server; `install` registers each with
-    `claude mcp add --scope user` unless `claude mcp get <name>` already finds it, and stops if the command
+    `claude mcp add --scope user` unless `claude mcp get <name>`, run from an empty directory, already finds it, and stops if the command
     isn't on PATH. macOS gets pulse from `brew.txt` (`2389-research/tap/pulse`). Facts checked on 2026-11-11:
     its `search_journal` is a substring match (nothing in the source builds embeddings), it makes no network
     calls unless the social feed is set up, and `mcpServers` is not a `settings.json` key. The other
