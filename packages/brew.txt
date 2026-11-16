@@ -12,3 +12,4 @@ shellcheck
 gh # on Omarchy gh comes from mise
 mise # runtimes and tools; CLAUDE.md says to use it
 2389-research/tap/pulse # journal MCP server, from a third-party tap; no Arch package exists
+spaceship # zsh prompt, macOS only: Omarchy runs starship. ~/.zshrc must source it; gotchas.md says how

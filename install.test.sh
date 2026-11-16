@@ -262,7 +262,7 @@ cp "$REPO/packages/brew.txt" "$REPO/packages/cask.txt" "$SANDBOX/packages/"
 STUB_OS=Darwin run_install
 expect_status "macOS: repo lists" 0
 expect_calls "macOS: repo brew.txt and cask.txt pass their packages" \
-  $'brew install awscli duckdb uv tmux git ast-grep stow jq shellcheck gh mise 2389-research/tap/pulse\nbrew install --cask bitwarden ghostty'
+  $'brew install awscli duckdb uv tmux git ast-grep stow jq shellcheck gh mise 2389-research/tap/pulse spaceship\nbrew install --cask bitwarden ghostty'
 
 # --- macOS: never needs omarchy or the Arch lists, and stows and registers the hook ---
 setup_mac $'git\n' ''
