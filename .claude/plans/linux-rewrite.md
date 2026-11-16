@@ -96,6 +96,11 @@ Omarchy 4.0.4 on the target box.
     `arch.txt` (the Omarchy box already has it; `gh` comes from it) and in `brew.txt`. Nothing is moved
     into mise yet. (2026-11-11)
 
+19. **Spaceship is back, on macOS only.** Amends decision 8, which dropped it. `spaceship` is in `brew.txt`
+    with no twin in `arch.txt`, because Omarchy's prompt is starship. The `source` line it needs in
+    `~/.zshrc` is added by hand on each Mac: decision 12 keeps app configs out of the repo, and `install`
+    never edits a file it doesn't own. `gotchas.md` has the line. (2026-11-16)
+
 ## Known facts
 
 - On Arch the ast-grep command is `ast-grep`, not `sg`; `claude/.claude/CLAUDE.md` says `ast-grep`.

@@ -59,3 +59,6 @@ tar -xzf /tmp/pulse.tar.gz -C ~/.local/bin --strip-components=1 "pulse_${v}_Linu
 
 ## CLAUDE.md is a fork of Harper's; read his history before borrowing
 `claude/.claude/CLAUDE.md` descends from `.claude/CLAUDE.md` in harperreed/dotfiles, forked in mid-September 2026. Before taking a rule from him, read `git log -p` for that file in his repo, commit messages included. He adds rules in batches, later rewrites the neighbours they contradict, and backs experiments out within weeks. One paragraph taken alone left this file arguing with itself on 2026-11-11.
+
+## Spaceship needs a line in ~/.zshrc, added by hand
+- 2026-11-16: `brew.txt` installs the Spaceship zsh prompt on macOS, but the formula only puts files on disk. The prompt shows once `~/.zshrc` holds `source "/opt/homebrew/opt/spaceship/spaceship.zsh"` (the path `brew info spaceship` prints). The dotfiles don't track `~/.zshrc` and `./install` never edits it, so add the line by hand on each Mac; Michelle chose this over a `zsh` stow package. It has no twin in `arch.txt` on purpose: Omarchy's prompt is starship.
